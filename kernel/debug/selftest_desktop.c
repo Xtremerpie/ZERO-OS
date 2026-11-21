@@ -22,7 +22,7 @@
 #include "desktop/about.h"
 #include "memory/heap.h"
 #include "zero/log.h"
-#include "lib/kprintf.h"
+
 #include "zero/string.h"
 
 /* Test 1: Color palette and pixel packing */
