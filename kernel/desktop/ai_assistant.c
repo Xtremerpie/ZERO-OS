@@ -17,7 +17,7 @@
 #include "intelligence/ai_automation.h"
 #include "intelligence/ai_memory.h"
 #include "zero/string.h"
-#include <stdio.h>
+#include <stdarg.h>
 
 #define AI_TAB_COUNT 6
 
@@ -55,7 +55,7 @@ static void draw_view_chat(framebuffer_t *fb, int32_t cx, int32_t cy, int32_t cw
 
     const ai_model_desc_t *m = ai_model_get_active();
     char stat_str[80];
-    snprintf(stat_str, sizeof(stat_str), "Model: %s | Provider: %s",
+    ai_snprintf(stat_str, sizeof(stat_str), "Model: %s | Provider: %s",
              m ? m->name : "None",
              ai_provider_get_active() ? ai_provider_get_active()->name : "None");
     font_draw_string(fb, cx + 18, cy + 14, stat_str, 1, COLOR_ZERO_GOLD);
@@ -134,21 +134,21 @@ static void draw_view_models(framebuffer_t *fb, int32_t cx, int32_t cy, int32_t 
 
     for (uint32_t i = 0; i < count; i++) {
         char buf[32];
-        snprintf(buf, sizeof(buf), "%u", models[i].id);
+        ai_snprintf(buf, sizeof(buf), "%u", models[i].id);
         font_draw_string(fb, cx + 18, row_y, buf, 1, COLOR_ZERO_TEXT);
 
         font_draw_string(fb, cx + 50, row_y, models[i].name, 1, COLOR_ZERO_WHITE);
         font_draw_string(fb, cx + 180, row_y, models[i].architecture, 1, COLOR_ZERO_MUTED);
 
         if (models[i].param_count_m > 0) {
-            snprintf(buf, sizeof(buf), "%uM", models[i].param_count_m);
+            ai_snprintf(buf, sizeof(buf), "%uM", models[i].param_count_m);
         } else {
             strcpy(buf, "N/A");
         }
         font_draw_string(fb, cx + 320, row_y, buf, 1, COLOR_ZERO_TEXT);
         font_draw_string(fb, cx + 390, row_y, models[i].quantization, 1, COLOR_ZERO_TEXT);
 
-        snprintf(buf, sizeof(buf), "%u MB", models[i].ram_required_mb);
+        ai_snprintf(buf, sizeof(buf), "%u MB", models[i].ram_required_mb);
         font_draw_string(fb, cx + 460, row_y, buf, 1, COLOR_ZERO_TEXT);
 
         if (models[i].state == AI_MODEL_STATE_LOADED) {
@@ -181,7 +181,7 @@ static void draw_view_automation(framebuffer_t *fb, int32_t cx, int32_t cy, int3
             draw_rect(fb, cx + 12, py, cw - 24, 46, COLOR_ZERO_GOLD);
 
             char buf[80];
-            snprintf(buf, sizeof(buf), "Action #%u: %s (Target: %s)", pending[i].id, pending[i].description, pending[i].target);
+            ai_snprintf(buf, sizeof(buf), "Action #%u: %s (Target: %s)", pending[i].id, pending[i].description, pending[i].target);
             font_draw_string(fb, cx + 20, py + 8, buf, 1, COLOR_ZERO_WHITE);
             font_draw_string(fb, cx + 20, py + 26, "Requires explicit confirmation before execution.", 1, COLOR_ZERO_WARNING);
 
@@ -215,7 +215,7 @@ static void draw_view_automation(framebuffer_t *fb, int32_t cx, int32_t cy, int3
 
     for (uint32_t i = 0; i < hcount; i++) {
         char buf[32];
-        snprintf(buf, sizeof(buf), "#%u", history[i].id);
+        ai_snprintf(buf, sizeof(buf), "#%u", history[i].id);
         font_draw_string(fb, cx + 18, row_y, buf, 1, COLOR_ZERO_MUTED);
 
         font_draw_string(fb, cx + 60, row_y, history[i].target, 1, COLOR_ZERO_WHITE);
@@ -245,7 +245,7 @@ static void draw_view_memory(framebuffer_t *fb, int32_t cx, int32_t cy, int32_t 
     draw_rect(fb, cx + 12, cy + 30, cw - 24, 70, COLOR_ZERO_BORDER);
 
     char buf[128];
-    snprintf(buf, sizeof(buf), "Default Model:           %s", prefs.default_model);
+    ai_snprintf(buf, sizeof(buf), "Default Model:           %s", prefs.default_model);
     font_draw_string(fb, cx + 24, cy + 40, buf, 1, COLOR_ZERO_WHITE);
     snprintf(buf, sizeof(buf), "Max Context Tokens:      %u", prefs.max_context_tokens);
     font_draw_string(fb, cx + 24, cy + 58, buf, 1, COLOR_ZERO_WHITE);
@@ -272,14 +272,14 @@ static void draw_view_memory(framebuffer_t *fb, int32_t cx, int32_t cy, int32_t 
     int32_t row_y = sy + 44;
 
     for (uint32_t i = 0; i < scount; i++) {
-        snprintf(buf, sizeof(buf), "#%u", sessions[i].id);
+        ai_snprintf(buf, sizeof(buf), "#%u", sessions[i].id);
         font_draw_string(fb, cx + 18, row_y, buf, 1, COLOR_ZERO_MUTED);
         font_draw_string(fb, cx + 60, row_y, sessions[i].title, 1, COLOR_ZERO_WHITE);
 
         snprintf(buf, sizeof(buf), "%u msgs", sessions[i].msg_count);
         font_draw_string(fb, cx + 220, row_y, buf, 1, COLOR_ZERO_TEXT);
 
-        snprintf(buf, sizeof(buf), "%llu ms", (unsigned long long)sessions[i].last_active_ms);
+        ai_snprintf(buf, sizeof(buf), "%llu ms", (unsigned long long)sessions[i].last_active_ms);
         font_draw_string(fb, cx + 320, row_y, buf, 1, COLOR_ZERO_MUTED);
 
         row_y += 22;
@@ -344,7 +344,7 @@ static void draw_view_service(framebuffer_t *fb, int32_t cx, int32_t cy, int32_t
     draw_rect(fb, cx + 12, cy + 30, cw - 24, 70, COLOR_ZERO_BORDER);
 
     char buf[128];
-    snprintf(buf, sizeof(buf), "State: %s | Uptime: %llu sec | Memory: %u KB",
+    ai_snprintf(buf, sizeof(buf), "State: %s | Uptime: %llu sec | Memory: %u KB",
              (dstat.state != AI_DAEMON_STOPPED) ? "ACTIVE" : "STOPPED",
              (unsigned long long)(dstat.uptime_ms / 1000),
              dstat.memory_used_kb);
@@ -376,7 +376,7 @@ static void draw_view_service(framebuffer_t *fb, int32_t cx, int32_t cy, int32_t
     int32_t row_y = ly + 44;
 
     for (uint32_t i = 0; i < lcount; i++) {
-        snprintf(buf, sizeof(buf), "[%llu ms]", (unsigned long long)logs[i].timestamp_ms);
+        ai_snprintf(buf, sizeof(buf), "[%llu ms]", (unsigned long long)logs[i].timestamp_ms);
         font_draw_string(fb, cx + 18, row_y, buf, 1, COLOR_ZERO_MUTED);
 
         font_draw_string(fb, cx + 100, row_y, logs[i].message, 1, logs[i].is_error ? COLOR_ZERO_CRIMSON : COLOR_ZERO_WHITE);
@@ -625,4 +625,97 @@ void ai_assistant_refresh(void)
     if (s_ai_window) {
         compositor_mark_dirty();
     }
+}
+
+/* Minimal freestanding formatter for ZERO AI Assistant UI. */
+static void ai_append_char(char *buffer, size_t size,
+                           size_t *pos, char c)
+{
+    if (*pos + 1 < size) {
+        buffer[*pos] = c;
+    }
+
+    (*pos)++;
+}
+
+static void ai_append_unsigned(char *buffer, size_t size,
+                               size_t *pos, uint64_t value)
+{
+    char temp[24];
+    size_t count = 0;
+
+    do {
+        temp[count++] = (char)('0' + (value % 10));
+        value /= 10;
+    } while (value && count < sizeof(temp));
+
+    while (count > 0) {
+        ai_append_char(buffer, size, pos, temp[--count]);
+    }
+}
+
+    static int ai_snprintf(char *buffer, size_t size,
+                       const char *format, ...)
+{
+    va_list args;
+    size_t pos = 0;
+
+    va_start(args, format);
+
+    while (*format) {
+        if (*format != '%') {
+            ai_append_char(buffer, size, &pos, *format++);
+            continue;
+        }
+
+        format++;
+
+        if (*format == '%') {
+            ai_append_char(buffer, size, &pos, '%');
+            format++;
+            continue;
+        }
+
+        if (*format == 's') {
+            const char *str = va_arg(args, const char *);
+            if (!str) str = "(null)";
+
+            while (*str) {
+                ai_append_char(buffer, size, &pos, *str++);
+            }
+
+            format++;
+            continue;
+        }
+
+        if (*format == 'u') {
+            unsigned int value = va_arg(args, unsigned int);
+            ai_append_unsigned(buffer, size, &pos, value);
+            format++;
+            continue;
+        }
+
+        if (format[0] == 'l' && format[1] == 'l' &&
+            format[2] == 'u') {
+            unsigned long long value =
+                va_arg(args, unsigned long long);
+
+            ai_append_unsigned(buffer, size, &pos, (uint64_t)value);
+            format += 3;
+            continue;
+        }
+
+        ai_append_char(buffer, size, &pos, '%');
+        ai_append_char(buffer, size, &pos, *format);
+        if (*format) format++;
+    }
+
+    va_end(args);
+
+    if (size > 0) {
+        size_t end = (pos < size) ? pos : size - 1;
+        buffer[end] = '\0';
+    }
+
+    return (int)pos;
 }
