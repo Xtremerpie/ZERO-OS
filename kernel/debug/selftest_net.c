@@ -18,7 +18,7 @@
 #include "net/socket.h"
 #include "zero/log.h"
 
-#include "lib/string.h"
+#include "zero/string.h"
 
 static bool test_net_buf(void)
 {
