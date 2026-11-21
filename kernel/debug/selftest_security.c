@@ -13,7 +13,7 @@
 #include "security/firewall.h"
 #include "security/audit.h"
 #include "syscall/syscall.h"
-#include "lib/kprintf.h"
+
 #include "zero/log.h"
 #include "zero/string.h"
 
