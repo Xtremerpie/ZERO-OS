@@ -1,0 +1,11 @@
+ZERO OS - licence NOT YET CHOSEN
+
+Copyright (c) 2026 the ZERO OS project owner. All rights reserved until the owner selects a licence.
+
+This file is a deliberate placeholder, not a licence grant. The project owner must choose a licence
+(for example MIT, Apache-2.0 or GPL-2.0-only) and replace this file before the source is shared or published.
+
+Third-party components keep their own licences, listed in third_party/THIRD_PARTY.md:
+  - Limine (BSD 2-Clause):                       third_party/limine/LICENSE
+  - limine-protocol header (0BSD):               third_party/limine/LICENSE.limine-protocol
+  - font8x8 (Public Domain)

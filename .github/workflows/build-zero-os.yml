@@ -1,0 +1,68 @@
+name: Build & Validate ZERO OS 9.0.0
+
+on:
+  push:
+    branches: [ "master", "release/**", "ci/**" ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out ZERO OS repository
+        uses: actions/checkout@v4
+
+      - name: Install Build & QEMU Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang \
+            lld \
+            nasm \
+            make \
+            qemu-system-x86 \
+            ovmf \
+            mtools \
+            gdisk \
+            python3 \
+            gdb
+
+      - name: Verify Build Environment
+        run: |
+          chmod +x scripts/*.sh
+          ./scripts/check-env.sh
+
+      - name: Compile ZERO OS Kernel (Freestanding ELF64)
+        run: |
+          make clean
+          make all
+          ls -la build/zero-kernel.elf
+
+      - name: Generate Bootable UEFI Disk Image (zero-os.img)
+        run: |
+          make image
+          ls -la build/zero-os.img
+
+      - name: Run Standalone Python Milestone Test Suites
+        run: |
+          python3 tests/run_all_milestone_tests.py
+
+      - name: Execute Full QEMU Bare-Metal Boot & Exception Suite
+        run: |
+          python3 tests/run_tests.py
+
+      - name: Compute Cryptographic Hashes
+        run: |
+          sha256sum build/zero-kernel.elf build/zero-os.img > build/SHA256SUMS.txt
+          cat build/SHA256SUMS.txt
+
+      - name: Upload ZERO OS Release Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: zero-os-9.0.0-uefi-image
+          path: |
+            build/zero-kernel.elf
+            build/zero-os.img
+            build/SHA256SUMS.txt
+          retention-days: 14

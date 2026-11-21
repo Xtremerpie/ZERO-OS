@@ -1,0 +1,16 @@
+{
+  "_comment": "Official ZERO OS version manifest. EXACTLY TEN entries. Never add, remove, reorder or renumber (see VERSION_POLICY.md). Internal builds use git hashes/dates, never new entries here.",
+  "current": "9.0.0",
+  "versions": [
+    { "version": "0.0.0", "name": "Genesis",                  "status": "complete" },
+    { "version": "1.0.0", "name": "Core Foundation",          "status": "complete" },
+    { "version": "2.0.0", "name": "System Architecture",      "status": "complete" },
+    { "version": "3.0.0", "name": "Hardware Foundation",      "status": "complete" },
+    { "version": "4.0.0", "name": "Storage & Networking",     "status": "complete" },
+    { "version": "5.0.0", "name": "ZERO Desktop",             "status": "complete" },
+    { "version": "6.0.0", "name": "ZERO Ecosystem",           "status": "complete" },
+    { "version": "7.0.0", "name": "ZERO Security",            "status": "complete" },
+    { "version": "8.0.0", "name": "ZERO Intelligence",        "status": "complete" },
+    { "version": "9.0.0", "name": "ZERO Ultimate",            "status": "in-progress" }
+  ]
+}

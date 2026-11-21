@@ -1,0 +1,14 @@
+# Force LF line endings in the repository and on checkout. This matters on Windows: with
+# core.autocrlf=true, shell scripts would otherwise get CRLF and fail in WSL ("bad interpreter").
+* text=auto eol=lf
+*.sh  text eol=lf
+*.asm text eol=lf
+*.ld  text eol=lf
+Makefile text eol=lf
+*.py  text eol=lf
+*.ps1 text eol=lf
+
+# Binary files: never touch.
+*.EFI binary
+*.png binary
+*.tar.gz binary

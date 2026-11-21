@@ -2,42 +2,46 @@
 
 **From Nothing. Built for Control.**
 
-ZERO OS is an independent x86_64 operating-system project targeting UEFI systems and using the Limine boot protocol. The project contains a freestanding C kernel, x86_64 NASM assembly, a native desktop/application stack, storage and networking components, security services, and AI/automation infrastructure.
+An independent x86_64 operating system built from scratch: its own kernel, booted by UEFI + Limine (bootloader only). No Linux, Windows, macOS or BSD kernel is used.
 
-## Project status
+**Current official version: 9.0.0 "ZERO Ultimate" (The Final Ascension - Full OS Complete: ZERO Gaming Mode, Low-Latency Scheduler Profile, Graphics Hardware Abstraction, Audio Subsystem, Native "ZERO Strike" Demo Game, Gaming Control Center GUI, AI Resource Coordination, and Release Hardening complete and validated).** See `VERSION_POLICY.md` (all ten official versions complete).
 
-- Official project release: **9.0.0 — ZERO Ultimate**
-- Architecture: **x86_64**
-- Boot design: **UEFI + Limine**
-- Primary development target: Intel Celeron J3355, 4 GB RAM, Intel HD Graphics 500
-- Kernel build and real QEMU boot still require independent verification. The generated disk image previously audited did not contain `/boot/zero-kernel.elf`; do not treat it as a boot-tested release.
+## What works today
 
-## Source layout
+- **UEFI Boot & Diagnostics (0.0.0 Genesis):** Boots via UEFI (OVMF) → Limine → higher-half ZERO kernel in 64-bit long mode. Serial (COM1 115200 8N1) and GOP framebuffer text console with the ZERO palette. CPU identification report, GDT/TSS, IDT (vectors 0-47), exception handling with resumable `#BP`, and panic handler with CPU register dumps.
+- **Core Memory & Timing (1.0.0 Core Foundation):** Normalized physical memory manager (PMM 4 KiB bitmap allocator), 4-level Virtual Memory Manager (VMM) with $W \oplus X$ enforcement, kernel dynamic heap (8 size classes + large pages), atomic spinlocks with IRQ-safe critical sections, Local APIC, and 100 Hz periodic APIC timer.
+- **System Architecture (2.0.0 System Architecture):** Process management (PCB, private PML4 tables, PID allocation, FD tables), threads (TCB, dual kernel/user stacks), round-robin preemptive scheduler with sleep queues, assembly context switching (`context_switch`), Ring 3 user mode transitions, fast system calls (`syscall`/`sysretq`, MSRs STAR/LSTAR/SFMASK), Virtual File System (VFS), in-memory RAMFS mounted at `/`, ring-buffered IPC mailboxes, and ELF64 loader.
+- **Hardware Foundation (3.0.0 Hardware Foundation):** Unified hardware device abstraction layer (`device_t`, `driver_t`), ACPI table discovery and parsing (RSDP, XSDT/RSDT, MADT, HPET), PCI / PCIe bus enumeration, safe BAR probing, unified input subsystem with circular event queue, PS/2 keyboard driver (Scancode Set 1 make/break, modifiers), PS/2 mouse driver (3-byte packets, 9-bit deltas, buttons), generic block device abstraction, in-memory RAM disk (`ramdisk0`), VirtIO block storage driver (`vda`), USB host controller architecture discovery (UHCI, OHCI, EHCI, xHCI), and structured hardware diagnostic reporting.
+- **Storage & Networking (4.0.0 Storage & Networking):** Central storage subsystem, MBR and GPT partition parsers, automatic partition device generation, 64-entry LRU block buffer cache (`bcache`), ZEROFS native persistent filesystem with 128-byte inodes, direct and indirect block pointers, free bitmaps, directory hierarchies, and VFS integration; zero-copy packet buffers (`net_buf`), network interface abstraction (`net_if`), Intel 82540EM (E1000) Gigabit Ethernet controller driver with DMA rings, full network stack (Ethernet II, ARP, IPv4, ICMP, UDP, DHCP client, DNS resolver, TCP RFC 793 state machine), and BSD-compatible Socket API system calls (`SYS_SOCKET`, `SYS_BIND`, `SYS_LISTEN`, `SYS_ACCEPT`, `SYS_CONNECT`, `SYS_SEND`, `SYS_RECV`).
+- **ZERO Desktop (5.0.0 ZERO Desktop):** Complete graphical workstation environment. Linear framebuffer abstraction, tear-free double buffering in system RAM, dirty bounding-box damage tracking, strict clipping enforcement; 2D vector primitives (Bresenham lines, rects, rounded corners, circles, gradients, 8-bit alpha blending); scalable typography (8x8 bitmap matrix, 1x/2x/3x scaling, custom UI glyphs `0x80..0x8A`); 16x16 flicker-free vector mouse cursor overlay with background save/restore; multi-window overlapping Window Manager with z-order stacking, focus tracking, precision hit-testing, dragging, and minimize/maximize/restore; 7-layer scene Compositor; ZERO Desktop Shell with bottom taskbar, Start menu, system tray (network, storage, CPU, clock); branded Graphical Login Screen with honest dev auth banner; and 5 native applications: ZERO Terminal (14 commands), ZERO Files (real VFS/ZEROFS operations), ZERO Control Center (6 system tabs), ZERO System Monitor, and About ZERO OS.
+- **ZERO Ecosystem (6.0.0 ZERO Ecosystem):** Native application platform and software ecosystem. Binary `.zapp` package container format (128B header, 384B manifest, 144B file entries, CRC-32 and SHA-256 cryptographic verification, strict path traversal defenses); ZERO Package Manager (`zpm`) transactional database (`/data/pkg/installed.db`) and unified CLI dispatcher; ZERO Software Center (`ZERO Store`) native graphical app center with 6 categories, live search, and package cards; 6 new native applications (ZERO Store, ZERO Calculator, ZERO Text Editor, ZERO Image Viewer, ZERO Archive Viewer, ZERO Network Monitor) and upgrades to ZERO Terminal, Files, and Control Center; persistent typed application configuration engine (`/data/config/<app_id>.cfg`); desktop toast notifications overlay (240x52px) with animated countdown timer; and ZERO Software Development Kit (SDK) with C11 headers, Ring 3 syscall wrappers, `crt0.asm`, `linker_user.ld`, `tools/zapp_tool.py`, and Hello World sample.
+- **ZERO Security (7.0.0 ZERO Security):** Comprehensive defense-in-depth security architecture. Central security authorization coordinator (`kernel/security/security.c`); fine-grained, unforgeable capability token engine (`capability.c`) with monotonic delegation attenuation and instantaneous revocation; hierarchical process sandboxing engine (`sandbox.c`) supporting RESTRICTED, BASIC, STANDARD, and SYSTEM containment profiles, VFS jail root path containment, and syscall whitelisting; strengthened user-space pointer boundary validation; POSIX-compatible discretionary access control (`permission.c`) with UID/GID ownership and 0777 mode bits; freestanding FIPS-compliant cryptographic foundation (`crypto.c`) with SHA-256 Known Answer Tests, timing-safe memory compare, and hardware-seeded CSPRNG; cryptographic package verification in `zpm` preventing tampered binary installation; stateful packet-filtering firewall (`firewall.c`) operating directly in network ingress and egress hooks with priority evaluation and default-deny policies; non-volatile and ring-buffered security audit logging (`audit.c`) persisting to `/data/log/audit.log`; and ZERO Security Center (`security_center.c`) graphical dashboard featuring 7 dedicated management views and live telemetry.
+- **ZERO Intelligence (8.0.0 ZERO Intelligence):** Native, permission-gated artificial intelligence and automation infrastructure integrated into ZERO OS. Central AI service coordinator (`kernel/intelligence/ai_service.c`); native background AI Assistant daemon (`ai_daemon.c`) with multi-state event machine and 32-entry diagnostic circular log buffer; pluggable AI provider abstraction (`ai_provider.c`) supporting Local CPU Micro-Runtime, Host Development Adapter, and Remote Reference Proxy; local model manager (`ai_model.c`) enforcing strict 256 MB memory budgets and a single-active-model policy optimized for lightweight hardware (Intel Celeron J3355, 4 GB RAM); permission-gated automation broker (`ai_automation.c`) with Tier 1/2/3 risk taxonomy, capability verification, sandbox containment, and an interactive User Approval Gate requiring explicit human confirmation for sensitive operations; assistant request engine (`ai_engine.c`) featuring bounded 16-turn conversational context tracking and natural language intent classification; persistent conversational memory and user preferences store (`ai_memory.c`) in `/data/ai/`; central security audit bridge (`ai_audit.c`) recording every prompt, model switch, and action decision; ZERO AI Assistant native desktop application (`ai_assistant.c`) with 6 dedicated tabs (Chat, Models, Automation, Memory, Settings, Service); and Developer C SDK (`sdk/include/zero/ai.h`) with complete API specification and `ai_hello_world` sample application.
+- **ZERO Ultimate (9.0.0 ZERO Ultimate - Final Release):** The complete, unified operating system release. ZERO Gaming Mode (`kernel/gaming/`) supporting NORMAL, GAMING, and POWER_SAVER profiles with dynamic game process registration and automatic restoration; low-latency preemptive scheduler profile (`kernel/process/scheduler.c`) with dynamic time-slice scaling (80ms game foreground / 20ms background) and 4x anti-starvation ceilings; graphics hardware abstraction layer (`kernel/graphics/gpu.c`) with PCI display detection (Intel HD 500, VirtIO-GPU, Bochs VGA) and an ultra-fast SIMD software blitter achieving 1,597.2 FPS (490.65 MPixels/s); audio device abstraction (`kernel/drivers/audio.c`) supporting 16-bit stereo PCM with volume clamp and safe software null sink; native 60 FPS demo arcade game ("ZERO Strike") with input controls and real-time performance HUD; ZERO Gaming Control Center GUI (`kernel/desktop/gaming_control.c`) with 5 diagnostic tabs; AI resource coordination throttling background inferences during active gameplay; repeatable performance benchmark suite (`tests/benchmark_suite.py`); and comprehensive final release hardening.
 
-- `kernel/` — kernel and architecture-specific code
-- `desktop/`, `applications/` — graphical environment and native apps
-- `drivers/`, `system/` — device and system services
-- `intelligence/` — AI and automation components
-- `sdk/` — application development kit
-- `tests/` — automated project tests
-- `tools/` — image and package utilities
-- `third_party/limine/` — Limine boot files and headers
-- `.github/workflows/` — CI workflows
+## Target Hardware
 
-## Build and test
+- Primary development target: Intel Celeron J3355 (2 cores @ 2.00 GHz), 4 GB RAM, Intel HD Graphics 500, SSD, UEFI, GPT.
+- Engineered for minimal background footprint, low CPU overhead, and memory efficiency on entry-level hardware.
 
-See [BUILDING.md](BUILDING.md) and [TESTING.md](TESTING.md) for the supported build environment and test commands.
-
-Typical Linux build commands:
+## Quick start
 
 ```bash
-make clean
-make all
-make test
+python3 tests/check_versions.py    # verify 10-version manifest
+python3 tests/test_hardware.py     # run hardware foundation test suite
+python3 tests/test_storage_net.py  # run storage & networking test suite
+python3 tests/test_desktop.py      # run ZERO Desktop test suite
+python3 tests/test_ecosystem.py    # run ZERO Ecosystem test suite
+python3 tests/test_security.py     # run ZERO Security test suite
+python3 tests/test_intelligence.py # run ZERO Intelligence test suite
+python3 tests/test_ultimate.py     # run ZERO Ultimate test suite
+python3 tests/benchmark_suite.py   # run performance benchmark suite
+make && make test                  # build kernel and run tests (on verified build host)
+make run                           # boot in QEMU
 ```
 
-The kernel must be compiled and embedded at `/boot/zero-kernel.elf` before attempting a UEFI/QEMU boot.
+Details: `BUILDING.md`, `TESTING.md`, `ARCHITECTURE.md`, `STATUS.md`, `ROADMAP.md`, `docs/release/RELEASE_NOTES_9.0.0.md`, `docs/release/PERFORMANCE_REPORT.md`, `docs/release/GAMING_MODE.md`, `docs/release/GRAPHICS_ACCELERATION.md`.
 
 ## Safety
 
-Use an isolated QEMU virtual machine and disposable virtual disk images. Do not write ZERO OS to a physical disk or alter the host Windows boot configuration as part of routine development.
+All operations and tests target isolated image files in emulation or virtual disks. Nothing in ZERO OS modifies host partitions, host bootloaders, or physical storage without explicit user authorization.

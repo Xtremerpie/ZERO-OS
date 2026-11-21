@@ -1,0 +1,27 @@
+# Build and test output
+build/
+build-ubsan/
+releases/*.img
+releases/*.iso
+*.o
+*.d
+*.elf
+*.img
+*.iso
+*.ppm
+*.sock
+*.fd
+*.tar.gz
+*.zip
+
+# Local-only files
+*.log
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+
+# Never commit secrets or machine-specific data
+.env
+*.key
+*.pem
