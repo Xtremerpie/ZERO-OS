@@ -236,7 +236,10 @@ static void calc_close_win(window_t *win)
 void calc_init(void)
 {
     s_calc_win = NULL;
-    calc_reset();
+    strcpy(s_display, "0");
+    s_acc = 0;
+    s_op = '\0';
+    s_reset_next = true;
 }
 
 window_t *calc_launch(void)
