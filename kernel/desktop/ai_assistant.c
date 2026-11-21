@@ -19,6 +19,8 @@
 #include "zero/string.h"
 #include <stdarg.h>
 
+static int ai_snprintf(char *buffer, size_t size, const char *format, ...);
+
 #define AI_TAB_COUNT 6
 
 static window_t *s_ai_window = NULL;
@@ -103,7 +105,7 @@ static void draw_view_chat(framebuffer_t *fb, int32_t cx, int32_t cy, int32_t cw
     draw_rect(fb, cx + 10, input_y, cw - 100, 28, COLOR_ZERO_BORDER_FOCUS);
 
     char display_input[140];
-    snprintf(display_input, sizeof(display_input), "%s_", s_input_buffer);
+    ai_snprintf(display_input, sizeof(display_input), "%s_", s_input_buffer);
     font_draw_string(fb, cx + 18, input_y + 8, display_input, 1, COLOR_ZERO_WHITE);
 
     /* Send Button */
@@ -135,7 +137,7 @@ static void draw_view_models(framebuffer_t *fb, int32_t cx, int32_t cy, int32_t 
     for (uint32_t i = 0; i < count; i++) {
         char buf[32];
         ai_snprintf(buf, sizeof(buf), "%u", models[i].id);
-        font_draw_string(fb, cx + 18, row_y, buf, 1, COLOR_ZERO_TEXT);
+        font_draw_string(fb, cx + 18, row_y, buf, 1, COLOR_ZERO_WHITE);
 
         font_draw_string(fb, cx + 50, row_y, models[i].name, 1, COLOR_ZERO_WHITE);
         font_draw_string(fb, cx + 180, row_y, models[i].architecture, 1, COLOR_ZERO_MUTED);
@@ -145,11 +147,11 @@ static void draw_view_models(framebuffer_t *fb, int32_t cx, int32_t cy, int32_t 
         } else {
             strcpy(buf, "N/A");
         }
-        font_draw_string(fb, cx + 320, row_y, buf, 1, COLOR_ZERO_TEXT);
-        font_draw_string(fb, cx + 390, row_y, models[i].quantization, 1, COLOR_ZERO_TEXT);
+        font_draw_string(fb, cx + 320, row_y, buf, 1, COLOR_ZERO_WHITE);
+        font_draw_string(fb, cx + 390, row_y, models[i].quantization, 1, COLOR_ZERO_WHITE);
 
         ai_snprintf(buf, sizeof(buf), "%u MB", models[i].ram_required_mb);
-        font_draw_string(fb, cx + 460, row_y, buf, 1, COLOR_ZERO_TEXT);
+        font_draw_string(fb, cx + 460, row_y, buf, 1, COLOR_ZERO_WHITE);
 
         if (models[i].state == AI_MODEL_STATE_LOADED) {
             draw_badge(fb, cx + 530, row_y - 2, "LOADED", 0x102010u, COLOR_ZERO_GOLD);
@@ -247,9 +249,9 @@ static void draw_view_memory(framebuffer_t *fb, int32_t cx, int32_t cy, int32_t 
     char buf[128];
     ai_snprintf(buf, sizeof(buf), "Default Model:           %s", prefs.default_model);
     font_draw_string(fb, cx + 24, cy + 40, buf, 1, COLOR_ZERO_WHITE);
-    snprintf(buf, sizeof(buf), "Max Context Tokens:      %u", prefs.max_context_tokens);
+    ai_snprintf(buf, sizeof(buf), "Max Context Tokens:      %u", prefs.max_context_tokens);
     font_draw_string(fb, cx + 24, cy + 58, buf, 1, COLOR_ZERO_WHITE);
-    snprintf(buf, sizeof(buf), "Toast Notifications:     %s", prefs.notifications_enabled ? "ENABLED" : "DISABLED");
+    ai_snprintf(buf, sizeof(buf), "Toast Notifications:     %s", prefs.notifications_enabled ? "ENABLED" : "DISABLED");
     font_draw_string(fb, cx + 24, cy + 76, buf, 1, COLOR_ZERO_WHITE);
 
     /* Clear Memory Button */
@@ -276,8 +278,8 @@ static void draw_view_memory(framebuffer_t *fb, int32_t cx, int32_t cy, int32_t 
         font_draw_string(fb, cx + 18, row_y, buf, 1, COLOR_ZERO_MUTED);
         font_draw_string(fb, cx + 60, row_y, sessions[i].title, 1, COLOR_ZERO_WHITE);
 
-        snprintf(buf, sizeof(buf), "%u msgs", sessions[i].msg_count);
-        font_draw_string(fb, cx + 220, row_y, buf, 1, COLOR_ZERO_TEXT);
+        ai_snprintf(buf, sizeof(buf), "%u msgs", sessions[i].msg_count);
+        font_draw_string(fb, cx + 220, row_y, buf, 1, COLOR_ZERO_WHITE);
 
         ai_snprintf(buf, sizeof(buf), "%llu ms", (unsigned long long)sessions[i].last_active_ms);
         font_draw_string(fb, cx + 320, row_y, buf, 1, COLOR_ZERO_MUTED);
@@ -297,7 +299,7 @@ static void draw_view_settings(framebuffer_t *fb, int32_t cx, int32_t cy, int32_
     draw_rect(fb, cx + 12, cy + 30, cw - 24, 70, COLOR_ZERO_BORDER);
 
     ai_provider_t *p = ai_provider_get_active();
-    font_draw_string(fb, cx + 24, cy + 42, "Active AI Provider:", 1, COLOR_ZERO_TEXT);
+    font_draw_string(fb, cx + 24, cy + 42, "Active AI Provider:", 1, COLOR_ZERO_WHITE);
     font_draw_string(fb, cx + 170, cy + 42, p ? p->name : "None", 1, COLOR_ZERO_GOLD);
 
     draw_fill_rect(fb, cx + cw - 180, cy + 38, 150, 26, 0x222230u);
@@ -388,10 +390,10 @@ static void ai_on_paint(window_t *win, framebuffer_t *fb)
 {
     if (!win || !fb) return;
 
-    int32_t cx = win->content_x;
-    int32_t cy = win->content_y;
-    int32_t cw = win->content_w;
-    int32_t ch = win->content_h;
+    int32_t cx = win->x + 1;
+    int32_t cy = win->y + WINDOW_TITLEBAR_HEIGHT;
+    int32_t cw = win->client_width;
+    int32_t ch = win->client_height;
 
     draw_fill_rect(fb, cx, cy, cw, ch, COLOR_ZERO_BLACK);
 
@@ -598,13 +600,12 @@ window_t *ai_assistant_launch(void)
     }
 
     s_ai_window = wm_create_window(
-        100, 70, AI_ASSISTANT_WIDTH, AI_ASSISTANT_HEIGHT,
         "ZERO AI Assistant",
+        100, 70, AI_ASSISTANT_WIDTH, AI_ASSISTANT_HEIGHT,
         WINDOW_FLAG_RESIZABLE
     );
 
     if (s_ai_window) {
-        s_ai_window->icon_glyph = GLYPH_ICON_TERMINAL;
         s_ai_window->on_paint = ai_on_paint;
         s_ai_window->on_mouse = ai_on_mouse;
         s_ai_window->on_key = ai_on_key;
@@ -654,7 +655,7 @@ static void ai_append_unsigned(char *buffer, size_t size,
     }
 }
 
-    static int ai_snprintf(char *buffer, size_t size,
+static int ai_snprintf(char *buffer, size_t size,
                        const char *format, ...)
 {
     va_list args;
