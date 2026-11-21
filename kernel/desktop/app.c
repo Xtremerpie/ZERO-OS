@@ -22,7 +22,7 @@ static app_desc_t s_apps[] = {
     {
         .id = APP_ID_STORE,
         .name = "ZERO Store",
-        .icon_glyph = GLYPH_ICON_INFO,
+        .icon_glyph = GLYPH_ICON_CHECK,
         .launch = store_launch,
         .is_open = store_is_open
     },
@@ -57,7 +57,7 @@ static app_desc_t s_apps[] = {
     {
         .id = APP_ID_VIEWER,
         .name = "Image Viewer",
-        .icon_glyph = GLYPH_ICON_INFO,
+        .icon_glyph = GLYPH_ICON_CHECK,
         .launch = viewer_launch,
         .is_open = viewer_is_open
     },
@@ -71,7 +71,7 @@ static app_desc_t s_apps[] = {
     {
         .id = APP_ID_NETMON,
         .name = "Network Monitor",
-        .icon_glyph = GLYPH_ICON_INFO,
+        .icon_glyph = GLYPH_ICON_CHECK,
         .launch = netmon_launch,
         .is_open = netmon_is_open
     },
@@ -126,7 +126,7 @@ static app_desc_t s_apps[] = {
     }
 };
 
-static const uint32_t s_app_count = sizeof(s_apps) / sizeof(s_apps[0]);
+static const uint32_t s_app_count = 15u;
 
 void app_init(void)
 {
