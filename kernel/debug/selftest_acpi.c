@@ -37,7 +37,7 @@ bool acpi_run_selftests(void)
     /* Corrupt one byte and verify rejection */
     synthetic_table[0] ^= 0xFF;
     if (acpi_validate_checksum(synthetic_table, sizeof(synthetic_table))) {
-        KLOG_ERR("selftest", "ACPI test 1 failed: corrupted table passed checksum");
+        KLOG_ERROR("selftest", "ACPI test 1 failed: corrupted table passed checksum");
         return false;
     }
 
@@ -46,11 +46,11 @@ bool acpi_run_selftests(void)
         const struct acpi_madt_info *madt = acpi_get_madt_info();
         if (madt) {
             if (madt->cpu_count > ACPI_MAX_CPUS) {
-                KLOG_ERR("selftest", "ACPI test 2 failed: cpu_count out of bounds");
+                KLOG_ERROR("selftest", "ACPI test 2 failed: cpu_count out of bounds");
                 return false;
             }
             if (madt->ioapic_count > ACPI_MAX_IOAPIC) {
-                KLOG_ERR("selftest", "ACPI test 2 failed: ioapic_count out of bounds");
+                KLOG_ERROR("selftest", "ACPI test 2 failed: ioapic_count out of bounds");
                 return false;
             }
         }
