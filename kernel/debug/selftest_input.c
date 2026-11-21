@@ -28,31 +28,31 @@ bool input_run_selftests(void)
     ev_in.timestamp = 100;
 
     if (input_push_event(&ev_in) != 0) {
-        KLOG_ERR("selftest", "Input test 1 failed: input_push_event failed");
+        KLOG_ERROR("selftest", "Input test 1 failed: input_push_event failed");
         return false;
     }
 
     input_event_t ev_out;
     if (!input_poll_event(&ev_out)) {
-        KLOG_ERR("selftest", "Input test 1 failed: input_poll_event returned false");
+        KLOG_ERROR("selftest", "Input test 1 failed: input_poll_event returned false");
         return false;
     }
 
     if (ev_out.type != INPUT_KEY_DOWN || ev_out.code != KEY_Z || ev_out.timestamp != 100) {
-        KLOG_ERR("selftest", "Input test 1 failed: event data corrupted");
+        KLOG_ERROR("selftest", "Input test 1 failed: event data corrupted");
         return false;
     }
 
     /* 2. Keyboard Scancode Translation Test (make and break) */
     ps2_kbd_handle_scancode(0x1E); /* Make code for 'A' */
     if (!input_poll_event(&ev_out) || ev_out.type != INPUT_KEY_DOWN || ev_out.code != KEY_A) {
-        KLOG_ERR("selftest", "Input test 2 failed: Scancode 0x1E (A) make decode failed");
+        KLOG_ERROR("selftest", "Input test 2 failed: Scancode 0x1E (A) make decode failed");
         return false;
     }
 
     ps2_kbd_handle_scancode(0x9E); /* Break code for 'A' (0x1E | 0x80) */
     if (!input_poll_event(&ev_out) || ev_out.type != INPUT_KEY_UP || ev_out.code != KEY_A) {
-        KLOG_ERR("selftest", "Input test 2 failed: Scancode 0x9E (A) break decode failed");
+        KLOG_ERROR("selftest", "Input test 2 failed: Scancode 0x9E (A) break decode failed");
         return false;
     }
 
@@ -63,7 +63,7 @@ bool input_run_selftests(void)
     char c_sym = input_keycode_to_ascii(KEY_1, MODIFIER_SHIFT);
 
     if (c_lower != 'a' || c_upper != 'A' || c_num != '1' || c_sym != '!') {
-        KLOG_ERR("selftest", "Input test 3 failed: ASCII translation mismatch ('%c', '%c', '%c', '%c')",
+        KLOG_ERROR("selftest", "Input test 3 failed: ASCII translation mismatch ('%c', '%c', '%c', '%c')",
                  c_lower, c_upper, c_num, c_sym);
         return false;
     }
@@ -88,7 +88,7 @@ bool input_run_selftests(void)
     }
 
     if (!got_move || !got_btn) {
-        KLOG_ERR("selftest", "Input test 4 failed: mouse packet decoding did not produce move/button events");
+        KLOG_ERROR("selftest", "Input test 4 failed: mouse packet decoding did not produce move/button events");
         return false;
     }
 
