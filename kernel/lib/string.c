@@ -70,3 +70,89 @@ int strncmp(const char *a, const char *b, size_t n)
     }
     return 0;
 }
+
+char *strcpy(char *dst, const char *src)
+{
+    char *ret = dst;
+
+    while ((*dst++ = *src++) != '\0') {
+    }
+
+    return ret;
+}
+
+char *strncpy(char *dst, const char *src, size_t n)
+{
+    char *ret = dst;
+    size_t i = 0;
+
+    while (i < n && src[i] != '\0') {
+        dst[i] = src[i];
+        i++;
+    }
+
+    while (i < n) {
+        dst[i++] = '\0';
+    }
+
+    return ret;
+}
+
+char *strcat(char *dst, const char *src)
+{
+    char *ret = dst;
+
+    while (*dst != '\0') {
+        dst++;
+    }
+
+    while ((*dst++ = *src++) != '\0') {
+    }
+
+    return ret;
+}
+
+char *strncat(char *dst, const char *src, size_t n)
+{
+    char *ret = dst;
+
+    while (*dst != '\0') {
+        dst++;
+    }
+
+    size_t i = 0;
+
+    while (i < n && src[i] != '\0') {
+        dst[i] = src[i];
+        i++;
+    }
+
+    dst[i] = '\0';
+
+    return ret;
+}
+
+char *strstr(const char *haystack, const char *needle)
+{
+    if (*needle == '\0') {
+        return (char *)haystack;
+    }
+
+    while (*haystack != '\0') {
+        const char *h = haystack;
+        const char *n = needle;
+
+        while (*h != '\0' && *n != '\0' && *h == *n) {
+            h++;
+            n++;
+        }
+
+        if (*n == '\0') {
+            return (char *)haystack;
+        }
+
+        haystack++;
+    }
+
+    return NULL;
+}
