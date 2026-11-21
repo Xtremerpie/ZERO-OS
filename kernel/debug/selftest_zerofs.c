@@ -9,7 +9,7 @@
 #include "drivers/block.h"
 #include "zero/log.h"
 
-#include "lib/string.h"
+#include "zero/string.h"
 
 bool zerofs_run_selftests(void)
 {
