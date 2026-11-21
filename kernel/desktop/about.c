@@ -66,10 +66,10 @@ static void about_paint(window_t *win, framebuffer_t *fb)
     font_draw_string(fb, cx - nw / 2, oy + ch - 24, notice, 1, COLOR_ZERO_MUTED);
 }
 
-static void about_close(window_t *win)
+static void about_on_close(window_t *win)
 {
     (void)win;
-    s_about_win->on_close = about_on_close;
+    s_about_win = NULL;
 }
 
 window_t *about_launch(void)
