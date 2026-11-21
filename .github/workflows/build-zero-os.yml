@@ -40,7 +40,9 @@ jobs:
       - name: Compile ZERO OS Kernel (Freestanding ELF64)
         run: |
           make clean
-          make all
+          # Keep compiling independent translation units after an error so one CI run
+          # reports the complete set of compile failures instead of stopping at the first.
+          make -k -j"$(nproc)" all
           ls -la build/zero-kernel.elf
 
       - name: Generate Bootable UEFI Disk Image (zero-os.img)
