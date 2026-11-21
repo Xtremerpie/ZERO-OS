@@ -1,17 +1,13 @@
 /* ZERO KERNEL - ZERO Archive Viewer Implementation (Milestone 6.0.0 ZERO Ecosystem).
  */
 #include "desktop/archiver.h"
-#include "apps/zapp.h"
 #include "graphics/draw.h"
 #include "graphics/font.h"
 #include "graphics/color.h"
 #include "zero/string.h"
 
 static window_t       *s_arch_win = NULL;
-static zapp_header_t   s_current_hdr;
-static zapp_manifest_t s_current_manifest;
 static char            s_current_pkg[64] = "calculator.zapp";
-static bool            s_has_pkg = true;
 
 static void archiver_paint(window_t *win, framebuffer_t *fb)
 {
