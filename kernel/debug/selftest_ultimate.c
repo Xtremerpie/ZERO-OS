@@ -6,7 +6,7 @@
 #include "graphics/gpu.h"
 #include "drivers/audio.h"
 #include "intelligence/ai_service.h"
-#include "lib/kprintf.h"
+
 #include "zero/log.h"
 #include "zero/string.h"
 
