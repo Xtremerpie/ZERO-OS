@@ -11,7 +11,7 @@
 #include "desktop/notification.h"
 #include "desktop/app.h"
 #include "desktop/shell.h"
-#include "lib/kprintf.h"
+
 #include "zero/log.h"
 #include "zero/string.h"
 
