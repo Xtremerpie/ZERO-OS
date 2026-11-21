@@ -28,14 +28,14 @@ bool ipc_run_selftests(void)
     test_msg.length = 4;
 
     if (ipc_send(999, &test_msg) == 0) {
-        KLOG_ERR("selftest", "IPC test 1 failed: allowed send to non-existent PID");
+        KLOG_ERROR("selftest", "IPC test 1 failed: allowed send to non-existent PID");
         return false;
     }
 
     /* 2. Create receiver process */
     process_t *recv_proc = process_create("ipc_worker", 0);
     if (!recv_proc) {
-        KLOG_ERR("selftest", "IPC test 2 failed: cannot create receiver process");
+        KLOG_ERROR("selftest", "IPC test 2 failed: cannot create receiver process");
         return false;
     }
 
@@ -43,7 +43,7 @@ bool ipc_run_selftests(void)
     int res = ipc_send(recv_proc->pid, &test_msg);
     if (res != 0) {
         process_cleanup(recv_proc);
-        KLOG_ERR("selftest", "IPC test 3 failed: ipc_send returned %d", res);
+        KLOG_ERROR("selftest", "IPC test 3 failed: ipc_send returned %d", res);
         return false;
     }
 
@@ -56,7 +56,7 @@ bool ipc_run_selftests(void)
     if (res != 0) {
         process_set_current(kproc);
         process_cleanup(recv_proc);
-        KLOG_ERR("selftest", "IPC test 4 failed: ipc_recv returned %d", res);
+        KLOG_ERROR("selftest", "IPC test 4 failed: ipc_recv returned %d", res);
         return false;
     }
 
@@ -64,7 +64,7 @@ bool ipc_run_selftests(void)
         received.type != 1 || received.length != 4 || strcmp((char *)received.payload, "PING") != 0) {
         process_set_current(kproc);
         process_cleanup(recv_proc);
-        KLOG_ERR("selftest", "IPC test 4 failed: payload corruption or metadata mismatch");
+        KLOG_ERROR("selftest", "IPC test 4 failed: payload corruption or metadata mismatch");
         return false;
     }
 
@@ -74,7 +74,7 @@ bool ipc_run_selftests(void)
         res = ipc_send(recv_proc->pid, &test_msg);
         if (res != 0) {
             process_cleanup(recv_proc);
-            KLOG_ERR("selftest", "IPC test 5 failed: queue insert failed at slot %lu", i);
+            KLOG_ERROR("selftest", "IPC test 5 failed: queue insert failed at slot %lu", i);
             return false;
         }
     }
@@ -83,7 +83,7 @@ bool ipc_run_selftests(void)
     res = ipc_send(recv_proc->pid, &test_msg);
     if (res != -2) {
         process_cleanup(recv_proc);
-        KLOG_ERR("selftest", "IPC test 5 failed: queue overflow was not rejected (-2)");
+        KLOG_ERROR("selftest", "IPC test 5 failed: queue overflow was not rejected (-2)");
         return false;
     }
 
