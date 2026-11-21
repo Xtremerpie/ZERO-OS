@@ -69,7 +69,7 @@ static void about_paint(window_t *win, framebuffer_t *fb)
 static void about_close(window_t *win)
 {
     (void)win;
-    s_about_win = NULL;
+    s_about_win->on_close = about_on_close;
 }
 
 window_t *about_launch(void)
