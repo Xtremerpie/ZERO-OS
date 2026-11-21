@@ -9,7 +9,7 @@
 #include "storage/bcache.h"
 #include "drivers/ramdisk.h"
 #include "zero/log.h"
-#include "lib/kprintf.h"
+
 #include "lib/string.h"
 
 static bool test_mbr_parsing(void)
