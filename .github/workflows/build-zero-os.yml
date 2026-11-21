@@ -2,7 +2,11 @@ name: Build & Validate ZERO OS 9.0.0
 
 on:
   push:
-    branches: [ "master", "release/**", "ci/**" ]
+    branches:
+      - main
+      - master
+      - release/**
+      - ci/**
   workflow_dispatch:
 
 jobs:
