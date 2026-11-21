@@ -30,7 +30,7 @@ bool acpi_run_selftests(void)
     synthetic_table[sizeof(synthetic_table) - 1] = (uint8_t)(0 - sum);
 
     if (!acpi_validate_checksum(synthetic_table, sizeof(synthetic_table))) {
-        KLOG_ERR("selftest", "ACPI test 1 failed: valid checksum rejected");
+        KLOG_ERROR("selftest", "ACPI test 1 failed: valid checksum rejected");
         return false;
     }
 
