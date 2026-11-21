@@ -25,14 +25,14 @@ bool sched_run_selftests(void)
 
     /* 1. Scheduler active */
     if (!scheduler_is_active()) {
-        KLOG_ERR("selftest", "Scheduler test 1 failed: scheduler not active");
+        KLOG_ERROR("selftest", "Scheduler test 1 failed: scheduler not active");
         return false;
     }
 
     /* 2. Current thread */
     thread_t *curr = thread_get_current();
     if (!curr) {
-        KLOG_ERR("selftest", "Scheduler test 2 failed: current thread is NULL");
+        KLOG_ERROR("selftest", "Scheduler test 2 failed: current thread is NULL");
         return false;
     }
 
@@ -46,7 +46,7 @@ bool sched_run_selftests(void)
     process_t *kproc = process_get(0);
     thread_t *sleeper = thread_create_kernel(kproc, "t_sleeper", dummy_sched_task, NULL);
     if (!sleeper) {
-        KLOG_ERR("selftest", "Scheduler test 4 failed: cannot create sleeper thread");
+        KLOG_ERROR("selftest", "Scheduler test 4 failed: cannot create sleeper thread");
         return false;
     }
 
@@ -57,7 +57,7 @@ bool sched_run_selftests(void)
     scheduler_tick();
     if (sleeper->state != THREAD_STATE_SLEEPING) {
         thread_destroy(sleeper);
-        KLOG_ERR("selftest", "Scheduler test 4 failed: woke up too early");
+        KLOG_ERROR("selftest", "Scheduler test 4 failed: woke up too early");
         return false;
     }
 
@@ -67,7 +67,7 @@ bool sched_run_selftests(void)
 
     if (sleeper->state != THREAD_STATE_READY) {
         thread_destroy(sleeper);
-        KLOG_ERR("selftest", "Scheduler test 4 failed: did not wake up when deadline reached");
+        KLOG_ERROR("selftest", "Scheduler test 4 failed: did not wake up when deadline reached");
         return false;
     }
 
