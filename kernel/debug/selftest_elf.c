@@ -30,7 +30,7 @@ bool elf_run_selftests(void)
     /* 1. Truncated header rejection */
     uint8_t garbage[16] = { 0 };
     if (elf_validate(garbage, sizeof(garbage)) == ELF_OK) {
-        KLOG_ERR("selftest", "ELF test 1 failed: accepted truncated header");
+        KLOG_ERROR("selftest", "ELF test 1 failed: accepted truncated header");
         return false;
     }
 
@@ -43,7 +43,7 @@ bool elf_run_selftests(void)
     test_elf.ehdr.e_ident[3] = 'D';
 
     if (elf_validate(&test_elf, sizeof(test_elf)) == ELF_OK) {
-        KLOG_ERR("selftest", "ELF test 2 failed: accepted invalid magic");
+        KLOG_ERROR("selftest", "ELF test 2 failed: accepted invalid magic");
         return false;
     }
 
@@ -83,14 +83,14 @@ bool elf_run_selftests(void)
     /* 4. Validate synthetic binary */
     enum elf_load_status status = elf_validate(&test_elf, sizeof(test_elf));
     if (status != ELF_OK) {
-        KLOG_ERR("selftest", "ELF test 4 failed: valid synthetic binary rejected with %s", elf_status_name(status));
+        KLOG_ERROR("selftest", "ELF test 4 failed: valid synthetic binary rejected with %s", elf_status_name(status));
         return false;
     }
 
     /* 5. Load synthetic binary into process address space */
     process_t *target_proc = process_create("elf_test_task", 0);
     if (!target_proc) {
-        KLOG_ERR("selftest", "ELF test 5 failed: cannot create process");
+        KLOG_ERROR("selftest", "ELF test 5 failed: cannot create process");
         return false;
     }
 
@@ -99,13 +99,13 @@ bool elf_run_selftests(void)
     status = elf_load(target_proc, &test_elf, sizeof(test_elf), &entry_point, &stack_top);
     if (status != ELF_OK) {
         process_cleanup(target_proc);
-        KLOG_ERR("selftest", "ELF test 5 failed: elf_load failed with %s", elf_status_name(status));
+        KLOG_ERROR("selftest", "ELF test 5 failed: elf_load failed with %s", elf_status_name(status));
         return false;
     }
 
     if (entry_point != 0x400000ull || stack_top != USER_STACK_TOP) {
         process_cleanup(target_proc);
-        KLOG_ERR("selftest", "ELF test 5 failed: entry (0x%lx) or stack (0x%lx) incorrect", entry_point, stack_top);
+        KLOG_ERROR("selftest", "ELF test 5 failed: entry (0x%lx) or stack (0x%lx) incorrect", entry_point, stack_top);
         return false;
     }
 
@@ -115,14 +115,14 @@ bool elf_run_selftests(void)
     enum vmm_status vs = vmm_translate(target_proc->pml4_virt, 0x400000ull, &phys_addr, &page_flags);
     if (vs != VMM_OK || phys_addr == 0) {
         process_cleanup(target_proc);
-        KLOG_ERR("selftest", "ELF test 6 failed: text page not mapped in target address space");
+        KLOG_ERROR("selftest", "ELF test 6 failed: text page not mapped in target address space");
         return false;
     }
 
     const uint8_t *mapped_code = (const uint8_t *)vmm_phys_to_virt(phys_addr);
     if (mapped_code[0] != 0x90 || mapped_code[15] != 0xC3) {
         process_cleanup(target_proc);
-        KLOG_ERR("selftest", "ELF test 6 failed: instruction payload mismatch in mapped frame");
+        KLOG_ERROR("selftest", "ELF test 6 failed: instruction payload mismatch in mapped frame");
         return false;
     }
 
