@@ -85,9 +85,11 @@ bool block_run_selftests(void)
     }
 
     /* 5. Read-only protection check */
+    bool original_read_only = bdev->read_only;
+
     bdev->read_only = true;
     res = block_write(bdev, 0, 1, write_buf);
-    bdev->read_only = false;
+    bdev->read_only = original_read_only;
 
     if (res != -2) {
         KLOG_ERROR("selftest", "Block test 5 failed: write to read-only device was not rejected with -2");
