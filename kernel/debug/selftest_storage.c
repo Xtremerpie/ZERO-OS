@@ -10,7 +10,7 @@
 #include "drivers/ramdisk.h"
 #include "zero/log.h"
 
-#include "lib/string.h"
+#include "zero/string.h"
 
 static bool test_mbr_parsing(void)
 {
