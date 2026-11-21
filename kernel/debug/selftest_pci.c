@@ -18,7 +18,7 @@ bool pci_run_selftests(void)
     /* 1. Verify Host Bridge at bus 0 slot 0 func 0 exists in standard x86 systems */
     uint16_t vendor = pci_read16(0, 0, 0, PCI_REG_VENDOR_ID);
     if (vendor == 0xFFFF || vendor == 0x0000) {
-        KLOG_ERR("selftest", "PCI test 1 failed: No host bridge at [00:00.0]");
+        KLOG_ERROR("selftest", "PCI test 1 failed: No host bridge at [00:00.0]");
         return false;
     }
 
@@ -30,14 +30,14 @@ bool pci_run_selftests(void)
     /* 2. Device count */
     size_t count = pci_device_count();
     if (count == 0) {
-        KLOG_ERR("selftest", "PCI test 2 failed: 0 PCI devices discovered");
+        KLOG_ERROR("selftest", "PCI test 2 failed: 0 PCI devices discovered");
         return false;
     }
 
     /* 3. Class name lookup */
     const char *name_vga = pci_class_name(0x03, 0x00);
     if (!name_vga || name_vga[0] == '\0') {
-        KLOG_ERR("selftest", "PCI test 3 failed: class name lookup failed");
+        KLOG_ERROR("selftest", "PCI test 3 failed: class name lookup failed");
         return false;
     }
 
