@@ -13,7 +13,7 @@
 #include "intelligence/ai_engine.h"
 #include "intelligence/ai_memory.h"
 #include "intelligence/ai_audit.h"
-#include "lib/kprintf.h"
+
 #include "zero/log.h"
 #include "zero/string.h"
 
