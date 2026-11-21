@@ -20,12 +20,12 @@ bool block_run_selftests(void)
 
     block_device_t *bdev = ramdisk_get_device();
     if (!bdev) {
-        KLOG_ERR("selftest", "Block test 1 failed: ramdisk0 device not found");
+        KLOG_ERROR("selftest", "Block test 1 failed: ramdisk0 device not found");
         return false;
     }
 
     if (bdev->sector_size != BLOCK_SECTOR_SIZE || bdev->sector_count == 0) {
-        KLOG_ERR("selftest", "Block test 1 failed: invalid sector size or count");
+        KLOG_ERROR("selftest", "Block test 1 failed: invalid sector size or count");
         return false;
     }
 
@@ -40,13 +40,13 @@ bool block_run_selftests(void)
 
     int res = block_write(bdev, 5, 1, write_buf);
     if (res != 0) {
-        KLOG_ERR("selftest", "Block test 2 failed: block_write to LBA 5 failed (%d)", res);
+        KLOG_ERROR("selftest", "Block test 2 failed: block_write to LBA 5 failed (%d)", res);
         return false;
     }
 
     res = block_read(bdev, 5, 1, read_buf);
     if (res != 0 || memcmp(write_buf, read_buf, BLOCK_SECTOR_SIZE) != 0) {
-        KLOG_ERR("selftest", "Block test 2 failed: read-back data mismatch at LBA 5");
+        KLOG_ERROR("selftest", "Block test 2 failed: read-back data mismatch at LBA 5");
         return false;
     }
 
@@ -61,26 +61,26 @@ bool block_run_selftests(void)
 
     res = block_write(bdev, 10, 4, multi_write);
     if (res != 0) {
-        KLOG_ERR("selftest", "Block test 3 failed: multi-sector write failed (%d)", res);
+        KLOG_ERROR("selftest", "Block test 3 failed: multi-sector write failed (%d)", res);
         return false;
     }
 
     res = block_read(bdev, 10, 4, multi_read);
     if (res != 0 || memcmp(multi_write, multi_read, sizeof(multi_write)) != 0) {
-        KLOG_ERR("selftest", "Block test 3 failed: multi-sector read-back mismatch");
+        KLOG_ERROR("selftest", "Block test 3 failed: multi-sector read-back mismatch");
         return false;
     }
 
     /* 4. Out-of-bounds rejection */
     res = block_read(bdev, bdev->sector_count, 1, read_buf);
     if (res == 0) {
-        KLOG_ERR("selftest", "Block test 4 failed: read at sector_count was not rejected");
+        KLOG_ERROR("selftest", "Block test 4 failed: read at sector_count was not rejected");
         return false;
     }
 
     res = block_write(bdev, bdev->sector_count - 1, 2, write_buf);
     if (res == 0) {
-        KLOG_ERR("selftest", "Block test 4 failed: write spanning past end was not rejected");
+        KLOG_ERROR("selftest", "Block test 4 failed: write spanning past end was not rejected");
         return false;
     }
 
@@ -90,7 +90,7 @@ bool block_run_selftests(void)
     bdev->read_only = false;
 
     if (res != -2) {
-        KLOG_ERR("selftest", "Block test 5 failed: write to read-only device was not rejected with -2");
+        KLOG_ERROR("selftest", "Block test 5 failed: write to read-only device was not rejected with -2");
         return false;
     }
 
