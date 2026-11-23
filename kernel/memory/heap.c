@@ -204,13 +204,13 @@ void kfree(void *ptr)
     /* Check for double-free */
     if (hdr->magic == HEAP_MAGIC_FREE) {
         stats.double_frees_prevented++;
-        kpanic("heap: DOUBLE-FREE detected at %p (size %llu)", ptr, hdr->req_size);
+        kpanic("heap: DOUBLE-FREE detected at %p (size %llu)", ptr, (unsigned long long)hdr->req_size);
     }
 
     /* Verify header magic */
     if (hdr->magic != HEAP_MAGIC_ALLOC) {
         stats.corruptions_detected++;
-        kpanic("heap: HEADER CORRUPTION detected at %p (magic 0x%016llx)", ptr, hdr->magic);
+        kpanic("heap: HEADER CORRUPTION detected at %p (magic 0x%016llx)", ptr, (unsigned long long)hdr->magic);
     }
 
     /* Verify tail canary */
@@ -218,7 +218,7 @@ void kfree(void *ptr)
     if (*canary_ptr != HEAP_CANARY_TAIL) {
         stats.corruptions_detected++;
         kpanic("heap: BUFFER OVERFLOW / TAIL CORRUPTION at %p (canary was 0x%016llx, expected 0x%016llx)",
-               ptr, *canary_ptr, HEAP_CANARY_TAIL);
+               ptr, (unsigned long long)*canary_ptr, (unsigned long long)HEAP_CANARY_TAIL);
     }
 
     size_t req_size = hdr->req_size;
