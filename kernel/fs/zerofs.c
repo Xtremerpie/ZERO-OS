@@ -11,7 +11,6 @@
 #include "lib/string.h"
 
 static const struct vnode_ops zerofs_vnode_ops;
-static spinlock_t g_zerofs_lock;
 
 /* Forward declarations */
 static int zerofs_read_inode(zerofs_mount_info_t *mnt, uint32_t inode_num, zerofs_inode_t *out_inode);
