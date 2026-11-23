@@ -47,8 +47,8 @@ int block_device_register(block_device_t *bdev)
     spinlock_release(&g_block_lock);
 
     uint64_t capacity_kib = (bdev->sector_count * bdev->sector_size) / 1024;
-    KLOG_INFO("block", "Registered block device #%u: '%s' (%lu sectors, %lu KiB, sector size: %u)",
-              bdev->id, bdev->name, bdev->sector_count, capacity_kib, bdev->sector_size);
+    KLOG_INFO("block", "Registered block device #%u: '%s' (%llu sectors, %llu KiB, sector size: %u)",
+              bdev->id, bdev->name, (unsigned long long)bdev->sector_count, (unsigned long long)capacity_kib, bdev->sector_size);
 
     return 0;
 }
