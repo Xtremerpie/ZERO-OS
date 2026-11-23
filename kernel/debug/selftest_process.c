@@ -81,7 +81,6 @@ bool process_run_selftests(void)
 
     /* 5. Process Cleanup */
     thread_destroy(t1);
-    thread_destroy(t2);
     process_cleanup(proc1);
 
     if (process_get(proc1->pid) != NULL) {
