@@ -6,7 +6,7 @@
 #include "net/ipv4.h"
 #include "zero/log.h"
 #include "zero/spinlock.h"
-#include "lib/string.h"
+#include "zero/string.h"
 
 static tcp_pcb_t   g_tcp_pcb_pool[TCP_MAX_CONNS];
 static spinlock_t  g_tcp_lock;
