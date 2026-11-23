@@ -74,8 +74,8 @@ void thread_init(void);
 /* Create a kernel thread within a process. */
 thread_t *thread_create_kernel(process_t *proc, const char *name, void (*entry_fn)(void *), void *arg);
 
-/* Create a user-space thread within a process. */
-thread_t *thread_create_user(process_t *proc, const char *name, uint64_t user_rip, uint64_t user_rsp);
+/* User-mode thread creation is intentionally not exposed until the x86_64
+ * privilege-transition path (TSS/IST + iretq frame) is implemented and tested. */
 
 /* Mark thread as terminated and trigger scheduling of next thread. */
 void thread_exit(void);
