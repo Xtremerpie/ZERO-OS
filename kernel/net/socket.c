@@ -6,7 +6,7 @@
 #include "net/udp.h"
 #include "zero/log.h"
 #include "zero/spinlock.h"
-#include "lib/string.h"
+#include "zero/string.h"
 
 static zero_socket_t g_sockets[SOCKET_MAX_DESCRIPTORS];
 static spinlock_t    g_sock_lock;
