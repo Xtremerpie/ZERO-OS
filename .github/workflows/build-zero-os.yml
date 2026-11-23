@@ -50,19 +50,13 @@ jobs:
           make image
           ls -la build/zero-os.img
 
-      - name: Run Standalone Python Milestone Test Suites
-        run: |
-          python3 tests/run_all_milestone_tests.py
-
-      - name: Execute Full QEMU Bare-Metal Boot & Exception Suite
-        run: |
-          python3 tests/run_tests.py
-
       - name: Compute Cryptographic Hashes
         run: |
           sha256sum build/zero-kernel.elf build/zero-os.img > build/SHA256SUMS.txt
           cat build/SHA256SUMS.txt
 
+      # Upload immediately after image generation so later test failures
+      # cannot prevent the user from retrieving the built image.
       - name: Upload ZERO OS Release Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -71,4 +65,13 @@ jobs:
             build/zero-kernel.elf
             build/zero-os.img
             build/SHA256SUMS.txt
+          if-no-files-found: error
           retention-days: 14
+
+      - name: Run Standalone Python Milestone Test Suites
+        run: |
+          python3 tests/run_all_milestone_tests.py
+
+      - name: Execute Full QEMU Bare-Metal Boot & Exception Suite
+        run: |
+          python3 tests/run_tests.py
