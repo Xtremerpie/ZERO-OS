@@ -264,7 +264,17 @@ void *krealloc(void *ptr, size_t new_size)
 
     size_t old_size = hdr->req_size;
     if (old_size >= new_size) {
-        /* Already fits; update tail canary */
+        /*
+         * Keep accounting consistent when shrinking in place. kfree() uses
+         * hdr->req_size, so without this adjustment the bytes released here
+         * would remain permanently counted as active allocations.
+         */
+        size_t released = old_size - new_size;
+        if (stats.active_allocated_bytes >= released)
+            stats.active_allocated_bytes -= released;
+        else
+            stats.active_allocated_bytes = 0;
+
         hdr->req_size = new_size;
         uint64_t *canary_ptr = (uint64_t *)((char *)ptr + new_size);
         *canary_ptr = HEAP_CANARY_TAIL;
