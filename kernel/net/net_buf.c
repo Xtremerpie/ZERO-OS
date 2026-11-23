@@ -5,7 +5,7 @@
 #include "net/net_buf.h"
 #include "zero/log.h"
 #include "zero/spinlock.h"
-#include "lib/string.h"
+#include "zero/string.h"
 
 static net_buf_t   g_buf_pool[NET_BUF_POOL_SIZE];
 static spinlock_t  g_buf_lock;
