@@ -23,3 +23,4 @@ void klog(enum log_level level, const char *subsystem, const char *fmt, ...)
 #define KLOG_INFO(sub, ...)  klog(LOG_INFO, sub, __VA_ARGS__)
 #define KLOG_WARN(sub, ...)  klog(LOG_WARN, sub, __VA_ARGS__)
 #define KLOG_ERROR(sub, ...) klog(LOG_ERROR, sub, __VA_ARGS__)
+\n/* Legacy spelling retained for older drivers. */\n#define KLOG_ERR(sub, ...) KLOG_ERROR(sub, __VA_ARGS__)\n
