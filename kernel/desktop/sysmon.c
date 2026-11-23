@@ -94,7 +94,7 @@ static void sysmon_paint(window_t *win, framebuffer_t *fb)
     font_draw_string(fb, meter_x, row_y, "Net I/O:  84 KB received, 24 KB transmitted (e1000 Gigabit)", 1, COLOR_ZERO_MUTED);
 }
 
-static void sysmon_close(window_t *win)
+static void sysmon_on_close(window_t *win)
 {
     (void)win;
     s_sysmon_win = NULL;
@@ -111,7 +111,7 @@ window_t *sysmon_launch(void)
     s_sysmon_win = wm_create_window("ZERO System Monitor", 120, 90, 520, 360, WINDOW_FLAG_RESIZABLE);
     if (s_sysmon_win) {
         s_sysmon_win->on_paint = sysmon_paint;
-        s_sysmon_win->on_close = sysmon_close;
+        s_sysmon_win->on_close = sysmon_on_close;
     }
 
     return s_sysmon_win;
