@@ -37,3 +37,10 @@ void spin_lock_irqsave(spinlock_t *lock, uint64_t *flags);
 
 /* Release spinlock and restore prior interrupt state from flags. */
 void spin_unlock_irqrestore(spinlock_t *lock, uint64_t flags);
+
+/* Compatibility for older subsystems; new code should use acquire/release. */
+static inline void spinlock_init_compat(spinlock_t *lock) { spinlock_init(lock, "legacy"); }
+#define ZERO_SPINLOCK_INIT_SELECT(_1, _2, NAME, ...) NAME
+#define spinlock_init(...) ZERO_SPINLOCK_INIT_SELECT(__VA_ARGS__, spinlock_init, spinlock_init_compat)(__VA_ARGS__)
+#define spin_lock(lock) spinlock_acquire(lock)
+#define spin_unlock(lock) spinlock_release(lock)
