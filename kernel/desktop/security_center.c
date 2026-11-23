@@ -537,8 +537,7 @@ window_t *security_center_launch(void)
     }
 
     s_sec_window = wm_create_window(
-        120, 80, SECURITY_CENTER_WIDTH, SECURITY_CENTER_HEIGHT,
-        "ZERO Security Center",
+        "ZERO Security Center", 120, 80, SECURITY_CENTER_WIDTH, SECURITY_CENTER_HEIGHT,
         WINDOW_FLAG_RESIZABLE
     );
 
