@@ -94,8 +94,8 @@ thread_t *thread_create_kernel(process_t *proc, const char *name, void (*entry_f
     /* Setup initial register context for context_switch */
     t->context.rsp = (uint64_t)(uintptr_t)t->kstack_top;
     t->context.rip = (uint64_t)(uintptr_t)thread_trampoline;
-    t->context.rdi = (uint64_t)(uintptr_t)entry_fn; /* Arg 0 */
-    t->context.rsi = (uint64_t)(uintptr_t)arg;      /* Arg 1 */
+    t->context.rdi = (uint64_t)(uintptr_t)entry_fn; /* trampoline arg 0 */
+    t->context.rsi = (uint64_t)(uintptr_t)arg;      /* trampoline arg 1 */
     t->context.rflags = 0x202;                      /* Interrupts enabled flag bit */
 
     t->priority = 10;
