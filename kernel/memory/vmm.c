@@ -360,9 +360,37 @@ enum vmm_status vmm_init(const struct boot_info *boot)
     struct pmm_stats ps;
     pmm_get_stats(&ps);
     uint64_t total_mapped_frames = ps.tracked_frames;
+
+    /*
+     * Limine may enter the kernel with its active stack outside the highest
+     * USABLE region tracked by PMM (for example, in BOOTLOADER_RECLAIMABLE
+     * memory). The new PML4 must preserve that stack mapping before CR3 is
+     * switched, otherwise the first interrupt/stack access becomes a #PF
+     * followed by a #DF.
+     *
+     * Keep a 2 MiB HHDM window above the current boot stack mapped as well.
+     * The lower portion is already covered by the normal 0..tracked_frames
+     * mapping. We intentionally map only this small additional window rather
+     * than every reserved physical region in the machine.
+     */
+    uint64_t current_rsp = 0;
+    __asm__ volatile ("mov %%rsp, %0" : "=r"(current_rsp));
+    if (current_rsp >= hhdm_base) {
+        uint64_t stack_phys = current_rsp - hhdm_base;
+        uint64_t stack_end = (stack_phys + (2ull * 1024 * 1024) + VMM_PAGE_SIZE - 1)
+                             & ~(VMM_PAGE_SIZE - 1);
+        uint64_t stack_frames = stack_end / VMM_PAGE_SIZE;
+        if (stack_frames > total_mapped_frames)
+            total_mapped_frames = stack_frames;
+        KLOG_INFO("vmm", "preserving active boot stack at HHDM physical 0x%016lx",
+                  stack_phys);
+    } else {
+        KLOG_WARN("vmm", "active stack is outside HHDM; retaining PMM-only direct map");
+    }
+
     KLOG_INFO("vmm", "mapping %lu physical frames into HHDM window", total_mapped_frames);
 
-    /* Map physical frames 0 .. tracked_frames into HHDM with Read-Write-NX */
+    /* Map PMM-tracked RAM plus the active boot-stack window with Read-Write-NX. */
     for (uint64_t frame = 0; frame < total_mapped_frames; frame++) {
         uint64_t phys = frame * VMM_PAGE_SIZE;
         uint64_t virt = hhdm_base + phys;
