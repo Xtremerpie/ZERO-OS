@@ -160,11 +160,11 @@ static void netmon_draw_overview(framebuffer_t *fb, int32_t cx, int32_t cy, int3
 
     font_draw_string(fb, cx + 20, cy + 200, "RX Errors:", 1, COLOR_ZERO_TEXT_DIM);
     format_num(rx_errs, buf, sizeof(buf));
-    font_draw_string(fb, cx + 110, cy + 200, buf, rx_errs ? COLOR_ZERO_CRIMSON : COLOR_ZERO_WHITE);
+    font_draw_string(fb, cx + 110, cy + 200, buf, 1, rx_errs ? COLOR_ZERO_CRIMSON : COLOR_ZERO_WHITE);
 
     font_draw_string(fb, cx + 260, cy + 200, "TX Errors:", 1, COLOR_ZERO_TEXT_DIM);
     format_num(tx_errs, buf, sizeof(buf));
-    font_draw_string(fb, cx + 350, cy + 200, buf, tx_errs ? COLOR_ZERO_CRIMSON : COLOR_ZERO_WHITE);
+    font_draw_string(fb, cx + 350, cy + 200, buf, 1, tx_errs ? COLOR_ZERO_CRIMSON : COLOR_ZERO_WHITE);
 }
 
 static void netmon_draw_arp(framebuffer_t *fb, int32_t cx, int32_t cy, int32_t cw, int32_t ch)
@@ -394,8 +394,7 @@ window_t *netmon_launch(void)
     }
 
     s_netmon_window = wm_create_window(
-        150, 110, NETMON_WIDTH, NETMON_HEIGHT,
-        "ZERO Network Monitor",
+        "ZERO Network Monitor", 150, 110, NETMON_WIDTH, NETMON_HEIGHT,
         WINDOW_FLAG_RESIZABLE
     );
 
