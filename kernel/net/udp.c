@@ -7,7 +7,7 @@
 #include "net/dhcp.h"
 #include "net/socket.h"
 #include "zero/log.h"
-#include "lib/string.h"
+#include "zero/string.h"
 
 int udp_rx(net_if_t *netif, net_buf_t *buf, uint32_t src_ip, uint32_t dst_ip)
 {
