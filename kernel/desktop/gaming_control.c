@@ -69,8 +69,8 @@ static void render_profiles_tab(window_t *win, framebuffer_t *fb, int32_t cx, in
 
     /* Telemetry Card */
     int32_t card_y = cy + 64;
-    draw_fill_rect(fb, cx, card_y, win->w - 40, 240, 0x121218u);
-    draw_rect(fb, cx, card_y, win->w - 40, 240, 0x2C2C36u);
+    draw_fill_rect(fb, cx, card_y, win->width - 40, 240, 0x121218u);
+    draw_rect(fb, cx, card_y, win->width - 40, 240, 0x2C2C36u);
 
     font_draw_string(fb, cx + 16, card_y + 16, "Active Game & Telemetry Status", 1, 0xC9A227u);
 
@@ -109,8 +109,8 @@ static void render_scheduler_tab(window_t *win, framebuffer_t *fb, int32_t cx, i
     struct scheduler_stats s_stats;
     scheduler_get_stats(&s_stats);
 
-    draw_fill_rect(fb, cx, cy, win->w - 40, 310, 0x121218u);
-    draw_rect(fb, cx, cy, win->w - 40, 310, 0x2C2C36u);
+    draw_fill_rect(fb, cx, cy, win->width - 40, 310, 0x121218u);
+    draw_rect(fb, cx, cy, win->width - 40, 310, 0x2C2C36u);
 
     font_draw_string(fb, cx + 16, cy + 16, "Preemptive Scheduler & Latency Profile", 1, 0xC9A227u);
 
@@ -134,8 +134,8 @@ static void render_graphics_tab(window_t *win, framebuffer_t *fb, int32_t cx, in
     gpu_get_telemetry(&g_telem);
     const gpu_device_t *g_dev = gpu_get_device();
 
-    draw_fill_rect(fb, cx, cy, win->w - 40, 310, 0x121218u);
-    draw_rect(fb, cx, cy, win->w - 40, 310, 0x2C2C36u);
+    draw_fill_rect(fb, cx, cy, win->width - 40, 310, 0x121218u);
+    draw_rect(fb, cx, cy, win->width - 40, 310, 0x2C2C36u);
 
     font_draw_string(fb, cx + 16, cy + 16, "Graphics Hardware Abstraction & Acceleration", 1, 0xC9A227u);
 
@@ -155,8 +155,8 @@ static void render_audio_tab(window_t *win, framebuffer_t *fb, int32_t cx, int32
     audio_telemetry_t a_telem;
     audio_get_telemetry(&a_telem);
 
-    draw_fill_rect(fb, cx, cy, win->w - 40, 310, 0x121218u);
-    draw_rect(fb, cx, cy, win->w - 40, 310, 0x2C2C36u);
+    draw_fill_rect(fb, cx, cy, win->width - 40, 310, 0x121218u);
+    draw_rect(fb, cx, cy, win->width - 40, 310, 0x2C2C36u);
 
     font_draw_string(fb, cx + 16, cy + 16, "Audio Device & Low-Latency Input Status", 1, 0xC9A227u);
 
@@ -174,8 +174,8 @@ static void render_ai_sync_tab(window_t *win, framebuffer_t *fb, int32_t cx, int
 {
     bool ai_throttled = ai_service_is_gaming_mode();
 
-    draw_fill_rect(fb, cx, cy, win->w - 40, 310, 0x121218u);
-    draw_rect(fb, cx, cy, win->w - 40, 310, 0x2C2C36u);
+    draw_fill_rect(fb, cx, cy, win->width - 40, 310, 0x121218u);
+    draw_rect(fb, cx, cy, win->width - 40, 310, 0x2C2C36u);
 
     font_draw_string(fb, cx + 16, cy + 16, "ZERO Intelligence & Game Resource Synchronization", 1, 0xC9A227u);
 
@@ -203,11 +203,11 @@ static void render_ai_sync_tab(window_t *win, framebuffer_t *fb, int32_t cx, int
 static void gc_paint(window_t *win, framebuffer_t *fb)
 {
     /* Window Background */
-    draw_fill_rect(fb, win->x, win->y, win->w, win->h, 0x0E0E12u);
+    draw_fill_rect(fb, win->x, win->y, win->width, win->height, 0x0E0E12u);
 
     /* Header Accent */
-    draw_fill_rect(fb, win->x, win->y, win->w, 40, 0x14141Cu);
-    draw_line(fb, win->x, win->y + 40, win->x + win->w, win->y + 40, 0xC9A227u);
+    draw_fill_rect(fb, win->x, win->y, win->width, 40, 0x14141Cu);
+    draw_line(fb, win->x, win->y + 40, win->x + win->width, win->y + 40, 0xC9A227u);
 
     /* Tab Buttons */
     int32_t tab_w = 95;
@@ -286,13 +286,13 @@ window_t *gaming_control_launch(void)
         return s_gc_window;
     }
 
-    s_gc_window = window_create("ZERO Gaming Control Center", 80, 50,
+    s_gc_window = wm_create_window("ZERO Gaming Control Center", 80, 50,
                                 GC_WIN_WIDTH, GC_WIN_HEIGHT,
-                                WINDOW_FLAG_TITLED | WINDOW_FLAG_CLOSABLE | WINDOW_FLAG_RESIZABLE);
+                                WINDOW_FLAG_RESIZABLE);
     if (!s_gc_window) return NULL;
 
-    s_gc_window->paint = gc_paint;
-    s_gc_window->on_click = gc_on_click;
+    s_gc_window->on_paint = gc_paint;
+    s_gc_window->on_mouse = gc_on_click;
 
     KLOG_INFO("gc", "launched Gaming Control Center GUI");
     return s_gc_window;
