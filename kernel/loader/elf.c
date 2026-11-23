@@ -115,7 +115,7 @@ enum elf_load_status elf_load(process_t *proc, const void *image, size_t size, u
 
                 vs = vmm_map_page(proc->pml4_virt, page_va, phys, page_flags);
                 if (vs != VMM_OK) {
-                    KLOG_ERR("elf", "Failed to map page 0x%016lx: %d", page_va, vs);
+                    KLOG_ERR("elf", "Failed to map page 0x%016llx: %d", page_va, vs);
                     return ELF_ERR_MAP_FAILED;
                 }
                 proc->memory_bytes_allocated += VMM_PAGE_SIZE;
@@ -154,7 +154,7 @@ enum elf_load_status elf_load(process_t *proc, const void *image, size_t size, u
         uint64_t stack_flags = VMM_FLAG_PRESENT | VMM_FLAG_USER | VMM_FLAG_WRITABLE | VMM_FLAG_NX;
         enum vmm_status vs = vmm_map_page(proc->pml4_virt, stack_va, phys, stack_flags);
         if (vs != VMM_OK) {
-            KLOG_ERR("elf", "Failed to map user stack page 0x%016lx: %d", stack_va, vs);
+            KLOG_ERR("elf", "Failed to map user stack page 0x%016llx: %d", (unsigned long long)stack_va, vs);
             return ELF_ERR_MAP_FAILED;
         }
         proc->memory_bytes_allocated += VMM_PAGE_SIZE;
@@ -167,8 +167,8 @@ enum elf_load_status elf_load(process_t *proc, const void *image, size_t size, u
         *out_stack = USER_STACK_TOP;
     }
 
-    KLOG_INFO("elf", "Loaded ELF binary for process '%s' (entry: 0x%016lx, stack: 0x%016lx)",
-              proc->name, ehdr->e_entry, USER_STACK_TOP);
+    KLOG_INFO("elf", "Loaded ELF binary for process '%s' (entry: 0x%016llx, stack: 0x%016llx)",
+              proc->name, (unsigned long long)ehdr->e_entry, (unsigned long long)USER_STACK_TOP);
     return ELF_OK;
 }
 
