@@ -5,7 +5,7 @@
 #include "net/icmp.h"
 #include "net/ipv4.h"
 #include "zero/log.h"
-#include "lib/string.h"
+#include "zero/string.h"
 
 int icmp_rx(net_if_t *netif, net_buf_t *buf, uint32_t src_ip)
 {
