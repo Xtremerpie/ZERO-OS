@@ -34,7 +34,7 @@
 #define COLOR_ZERO_TITLEBAR_ACT 0x1E1E26u /* Active Window Titlebar */
 #define COLOR_ZERO_TITLEBAR_INA 0x14141Au /* Inactive Window Titlebar */
 
-/* Color packing and component extraction helpers */
+/* Compatibility palette alias used by older desktop modules. */\n#define COLOR_ZERO_TEXT_DIM COLOR_ZERO_MUTED\n\n/* Color packing and component extraction helpers */
 static inline uint32_t color_rgb(uint8_t r, uint8_t g, uint8_t b)
 {
     return ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
