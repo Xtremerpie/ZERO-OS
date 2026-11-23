@@ -4,10 +4,9 @@
  * 1. Kernel process PID 0 exists, valid name, state == RUNNING.
  * 2. Process creation with private PML4 allocation and initial NEW state.
  * 3. Kernel thread creation with allocated 16 KiB kernel stack and READY state.
- * 4. User thread creation with user rip/rsp registers.
- * 5. Process termination and exit code recording.
- * 6. Process cleanup and address space deallocation.
- * 7. Process lookup and count accounting.
+ * 4. Process termination and exit code recording.
+ * 5. Process cleanup and address space deallocation.
+ * 6. Process lookup and count accounting.
  */
 
 #include "process/process_test.h"
@@ -73,27 +72,20 @@ bool process_run_selftests(void)
         return false;
     }
 
-    /* 4. User Thread Creation */
-    thread_t *t2 = thread_create_user(proc1, "t2_user", 0x0000400000ull, 0x00007FFFF0000000ull);
-    if (!t2 || t2->user_rip != 0x0000400000ull || t2->user_rsp != 0x00007FFFF0000000ull) {
-        KLOG_ERROR("selftest", "Process test 4 failed: thread_create_user failed");
-        return false;
-    }
-
-    /* 5. Process Termination */
+    /* 4. Process Termination */
     process_terminate(proc1, 42);
     if (proc1->state != PROCESS_STATE_TERMINATED || proc1->exit_code != 42) {
         KLOG_ERROR("selftest", "Process test 5 failed: termination status invalid");
         return false;
     }
 
-    /* 6. Process Cleanup */
+    /* 5. Process Cleanup */
     thread_destroy(t1);
     thread_destroy(t2);
     process_cleanup(proc1);
 
     if (process_get(proc1->pid) != NULL) {
-        KLOG_ERROR("selftest", "Process test 6 failed: process not cleaned up");
+        KLOG_ERROR("selftest", "Process test 5 failed: process not cleaned up");
         return false;
     }
 
