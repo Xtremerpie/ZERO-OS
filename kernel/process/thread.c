@@ -101,7 +101,10 @@ thread_t *thread_create_kernel(process_t *proc, const char *name, void (*entry_f
     t->priority = 10;
     t->time_slice = DEFAULT_TIME_SLICE;
 
-    /* Link into process thread list */
+    /* Link into process thread accounting. The first created thread is the
+     * process main thread; later threads are additional workers. */
+    if (!proc->main_thread)
+        proc->main_thread = t;
     proc->thread_count++;
 
     spin_unlock_irqrestore(&thread_lock, flags);
