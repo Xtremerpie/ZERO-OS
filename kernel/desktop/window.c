@@ -57,6 +57,12 @@ window_t *wm_create_window(const char *title, int32_t x, int32_t y, int32_t w, i
     win->y = y;
     win->width = w;
     win->height = h;
+    win->w = w;
+    win->h = h;
+    win->content_x = x + 1;
+    win->content_y = y + WINDOW_TITLEBAR_HEIGHT;
+    win->content_w = w - 2;
+    win->content_h = h - WINDOW_TITLEBAR_HEIGHT - 1;
 
     win->saved_x = x;
     win->saved_y = y;
@@ -186,6 +192,8 @@ void wm_move(window_t *win, int32_t new_x, int32_t new_y)
 
     win->x = new_x;
     win->y = new_y;
+    win->content_x = new_x + 1;
+    win->content_y = new_y + WINDOW_TITLEBAR_HEIGHT;
 }
 
 void wm_resize(window_t *win, int32_t new_w, int32_t new_h)
@@ -223,8 +231,14 @@ void wm_resize(window_t *win, int32_t new_w, int32_t new_h)
     win->content = new_buf;
     win->width = new_w;
     win->height = new_h;
+    win->w = new_w;
+    win->h = new_h;
     win->client_width = new_cw;
     win->client_height = new_ch;
+    win->content_x = win->x + 1;
+    win->content_y = win->y + WINDOW_TITLEBAR_HEIGHT;
+    win->content_w = new_cw;
+    win->content_h = new_ch;
 }
 
 void wm_minimize(window_t *win)
