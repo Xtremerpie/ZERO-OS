@@ -6,7 +6,7 @@
 #include "storage/partition.h"
 #include "zero/log.h"
 #include "memory/heap.h"
-#include "lib/string.h"
+#include "zero/string.h"
 
 /* Standard IEEE 802.3 CRC32 lookup table (polynomial 0xEDB88320) */
 static const uint32_t crc32_table[16] = {
