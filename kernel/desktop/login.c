@@ -140,6 +140,8 @@ void login_render(framebuffer_t *fb)
 
 void login_handle_mouse(int32_t x, int32_t y, uint8_t buttons)
 {
+    (void)x;
+    (void)y;
     bool btn_down = (buttons & 1u) && !s_last_btn_state;
     s_last_btn_state = (buttons & 1u) != 0;
 
