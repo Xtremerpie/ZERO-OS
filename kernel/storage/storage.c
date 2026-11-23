@@ -7,7 +7,7 @@
 #include "storage/partition.h"
 #include "zero/log.h"
 #include "zero/spinlock.h"
-#include "lib/string.h"
+#include "zero/string.h"
 
 static storage_stats_t g_storage_stats;
 static spinlock_t g_storage_lock;
