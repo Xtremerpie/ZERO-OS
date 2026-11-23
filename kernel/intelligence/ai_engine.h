@@ -10,6 +10,7 @@
 #include <stddef.h>
 #include "intelligence/ai_automation.h"
 
+#define AI_MAX_SESSIONS     8u
 #define AI_MAX_SESSION_MSGS 16u
 #define AI_MSG_TEXT_LEN     256u
 
