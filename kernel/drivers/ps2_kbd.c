@@ -117,7 +117,7 @@ static void ps2_kbd_irq_handler(struct interrupt_frame *frame)
         uint8_t sc = inb(PS2_DATA_PORT);
         ps2_kbd_handle_scancode(sc);
     }
-    apic_send_eoi();
+    apic_eoi();
 }
 
 int ps2_kbd_init(void)
