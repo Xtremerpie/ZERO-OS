@@ -24,7 +24,7 @@
 #define GLYPH_ICON_CPU        0x87
 #define GLYPH_ICON_DISK       0x88
 #define GLYPH_ICON_NET        0x89
-#define GLYPH_ICON_CHECK      0x8A
+#define GLYPH_ICON_CHECK      0x8A\n#define GLYPH_ICON_INFO       0x8B
 
 /* Measure pixel width of string rendered at given scale */
 int32_t font_get_string_width(const char *text, uint32_t scale);
