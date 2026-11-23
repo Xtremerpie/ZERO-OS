@@ -115,7 +115,7 @@ enum elf_load_status elf_load(process_t *proc, const void *image, size_t size, u
 
                 vs = vmm_map_page(proc->pml4_virt, page_va, phys, page_flags);
                 if (vs != VMM_OK) {
-                    KLOG_ERR("elf", "Failed to map page 0x%016llx: %d", page_va, vs);
+                    KLOG_ERR("elf", "Failed to map page 0x%016llx: %d", (unsigned long long)page_va, vs);
                     return ELF_ERR_MAP_FAILED;
                 }
                 proc->memory_bytes_allocated += VMM_PAGE_SIZE;
