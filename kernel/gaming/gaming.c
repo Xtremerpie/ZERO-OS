@@ -201,26 +201,17 @@ void gaming_record_frame(uint32_t frame_time_us)
 bool gaming_load_config(gaming_config_t *out_cfg)
 {
     if (!out_cfg) return false;
-
-    vfs_node_t *node = vfs_lookup(GAMING_CONFIG_PATH);
-    if (!node) {
-        *out_cfg = s_config;
-        return false;
-    }
-
+    file_t *file = vfs_open(GAMING_CONFIG_PATH, O_RDONLY);
+    if (!file) { *out_cfg = s_config; return false; }
     char buf[128];
-    int64_t bytes = vfs_read(node, 0, sizeof(buf) - 1, (uint8_t *)buf);
-    if (bytes <= 0) {
-        *out_cfg = s_config;
-        return false;
-    }
-    buf[bytes] = '\0';
-
+    int64_t bytes = vfs_read(file, buf, sizeof(buf) - 1);
+    vfs_close(file);
+    if (bytes <= 0) { *out_cfg = s_config; return false; }
+    buf[(size_t)bytes < sizeof(buf) ? (size_t)bytes : sizeof(buf) - 1] = '\\0';
     if (strstr(buf, "auto_switch=0")) s_config.auto_switch_on_launch = false;
     if (strstr(buf, "pause_ai=0")) s_config.pause_ai_background = false;
     if (strstr(buf, "target_fps=30")) s_config.target_fps = 30;
     if (strstr(buf, "target_fps=120")) s_config.target_fps = 120;
-
     *out_cfg = s_config;
     return true;
 }
@@ -229,21 +220,17 @@ bool gaming_save_config(const gaming_config_t *cfg)
 {
     if (!cfg) return false;
     s_config = *cfg;
-
-    vfs_node_t *node = vfs_lookup(GAMING_CONFIG_PATH);
-    if (!node) {
-        node = vfs_create(GAMING_CONFIG_PATH, VFS_TYPE_FILE, 0644);
-    }
-    if (!node) return false;
-
     char buf[128];
-    buf[0] = '\0';
-    strcat(buf, "auto_switch=");
-    strcat(buf, s_config.auto_switch_on_launch ? "1\n" : "0\n");
-    strcat(buf, "pause_ai=");
-    strcat(buf, s_config.pause_ai_background ? "1\n" : "0\n");
-    strcat(buf, "target_fps=60\n");
-
-    vfs_write(node, 0, strlen(buf), (const uint8_t *)buf);
-    return true;
+    size_t pos = 0;
+    const char *a = s_config.auto_switch_on_launch ? "auto_switch=1\\n" : "auto_switch=0\\n";
+    const char *b = s_config.pause_ai_background ? "pause_ai=1\\n" : "pause_ai=0\\n";
+    while (*a && pos + 1 < sizeof(buf)) buf[pos++] = *a++;
+    while (*b && pos + 1 < sizeof(buf)) buf[pos++] = *b++;
+    const char *fps = "target_fps=60\\n";
+    while (*fps && pos + 1 < sizeof(buf)) buf[pos++] = *fps++;
+    file_t *file = vfs_open(GAMING_CONFIG_PATH, O_WRONLY | O_CREAT | O_TRUNC);
+    if (!file) return false;
+    int64_t written = vfs_write(file, buf, pos);
+    vfs_close(file);
+    return written == (int64_t)pos;
 }
