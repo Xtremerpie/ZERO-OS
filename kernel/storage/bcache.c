@@ -6,7 +6,7 @@
 #include "storage/bcache.h"
 #include "zero/log.h"
 #include "zero/spinlock.h"
-#include "lib/string.h"
+#include "zero/string.h"
 
 static bcache_entry_t g_bcache[BCACHE_NUM_ENTRIES];
 static bcache_stats_t g_bcache_stats;
