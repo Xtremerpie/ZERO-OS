@@ -4,7 +4,6 @@
 #include "fs/vfs.h"
 #include "zero/timer.h"
 #include "zero/string.h"
-#include <stdio.h>
 
 static audit_event_t s_ring[AUDIT_RING_BUFFER_SIZE];
 static uint32_t      s_head = 0;
@@ -40,32 +39,47 @@ void audit_init(void)
     s_total_count = 0;
 }
 
+static size_t audit_append(char *out, size_t cap, size_t pos, const char *src)
+{
+    if (!src) src = "-";
+    while (*src && pos + 1 < cap) out[pos++] = *src++;
+    out[pos] = '\0';
+    return pos;
+}
+
+static size_t audit_append_u64(char *out, size_t cap, size_t pos, uint64_t value)
+{
+    char digits[24];
+    size_t n = 0;
+    do { digits[n++] = (char)('0' + (value % 10u)); value /= 10u; } while (value && n < sizeof(digits));
+    while (n && pos + 1 < cap) out[pos++] = digits[--n];
+    out[pos] = '\0';
+    return pos;
+}
+
 static void audit_persist_line(const audit_event_t *ev)
 {
     if (!ev) return;
-
-    /* Ensure directory structure exists if possible */
     (void)vfs_mkdir("/data");
     (void)vfs_mkdir("/data/log");
-
     file_t *f = vfs_open(AUDIT_LOG_FILE_PATH, O_WRONLY | O_CREAT | O_APPEND);
     if (!f) return;
-
-    char line[256];
-    int len = snprintf(line, sizeof(line), "[%llu] %s pid=%u res=%s result=%s details=%s\n",
-                       (unsigned long long)ev->timestamp_ms,
-                       audit_event_type_name(ev->type),
-                       ev->pid,
-                       ev->resource[0] ? ev->resource : "-",
-                       ev->success ? "ALLOW" : "DENY",
-                       ev->details[0] ? ev->details : "-");
-
-    if (len > 0) {
-        vfs_write(f, line, (size_t)len);
-    }
+    char line[256] = {0};
+    size_t pos = 0;
+    pos = audit_append(line, sizeof(line), pos, "[");
+    pos = audit_append_u64(line, sizeof(line), pos, ev->timestamp_ms);
+    pos = audit_append(line, sizeof(line), pos, "] ");
+    pos = audit_append(line, sizeof(line), pos, audit_event_type_name(ev->type));
+    pos = audit_append(line, sizeof(line), pos, " pid=");
+    pos = audit_append_u64(line, sizeof(line), pos, ev->pid);
+    pos = audit_append(line, sizeof(line), pos, " res=");
+    pos = audit_append(line, sizeof(line), pos, ev->resource[0] ? ev->resource : "-");
+    pos = audit_append(line, sizeof(line), pos, ev->success ? " result=ALLOW details=" : " result=DENY details=");
+    pos = audit_append(line, sizeof(line), pos, ev->details[0] ? ev->details : "-");
+    if (pos < sizeof(line)) line[pos++] = '\n';
+    (void)vfs_write(f, line, pos);
     vfs_close(f);
 }
-
 void audit_log(audit_event_type_t type, uint32_t pid, const char *resource, bool success, const char *details)
 {
     s_total_count++;
