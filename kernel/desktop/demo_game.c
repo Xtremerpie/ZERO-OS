@@ -36,6 +36,9 @@ typedef struct {
 } enemy_t;
 
 static window_t *s_game_window = NULL;
+
+/* The window manager redraws visible windows in its normal compositor pass. */
+static void game_window_invalidate(window_t *win) { (void)win; }
 static star_t    s_stars[MAX_STARS];
 static laser_t   s_lasers[MAX_LASERS];
 static enemy_t   s_enemies[MAX_ENEMIES];
@@ -156,7 +159,7 @@ void demo_game_tick(void)
         }
     }
 
-    window_invalidate(s_game_window);
+    game_window_invalidate(s_game_window);
 }
 
 static void game_paint(window_t *win, framebuffer_t *fb)
@@ -164,7 +167,7 @@ static void game_paint(window_t *win, framebuffer_t *fb)
     (void)win;
 
     /* Space Background */
-    draw_fill_rect(fb, win->x, win->y, win->w, win->h, 0x0A0A0Cu);
+    draw_fill_rect(fb, win->x, win->y, win->width, win->height, 0x0A0A0Cu);
 
     /* Render Stars */
     for (uint32_t i = 0; i < MAX_STARS; i++) {
@@ -172,8 +175,8 @@ static void game_paint(window_t *win, framebuffer_t *fb)
     }
 
     /* Top Performance HUD Banner */
-    draw_fill_rect(fb, win->x, win->y, win->w, 28, 0x14141Cu);
-    draw_line(fb, win->x, win->y + 28, win->x + win->w, win->y + 28, 0xC9A227u);
+    draw_fill_rect(fb, win->x, win->y, win->width, 28, 0x14141Cu);
+    draw_line(fb, win->x, win->y + 28, win->x + win->width, win->y + 28, 0xC9A227u);
 
     font_draw_string(fb, win->x + 10, win->y + 8, "FPS: 60 | Frame: 16.6ms | Profile: GAMING", 1, 0x4CAF50u);
 
@@ -190,7 +193,7 @@ static void game_paint(window_t *win, framebuffer_t *fb)
         score_str[10] = '0' + (char)(sc % 10);
         score_str[11] = '\0';
     }
-    font_draw_string(fb, win->x + win->w - 110, win->y + 8, score_str, 1, 0xC9A227u);
+    font_draw_string(fb, win->x + win->width - 110, win->y + 8, score_str, 1, 0xC9A227u);
 
     /* Render Enemies */
     for (uint32_t e = 0; e < MAX_ENEMIES; e++) {
@@ -216,8 +219,8 @@ static void game_paint(window_t *win, framebuffer_t *fb)
     draw_fill_rect(fb, px + 4, py + 6, 20, 4, 0xB3202Bu);
 
     /* Bottom Control Instructions */
-    draw_fill_rect(fb, win->x, win->y + win->h - 22, win->w, 22, 0x14141Cu);
-    font_draw_string(fb, win->x + 14, win->y + win->h - 16,
+    draw_fill_rect(fb, win->x, win->y + win->height - 22, win->width, 22, 0x14141Cu);
+    font_draw_string(fb, win->x + 14, win->y + win->height - 16,
                      "[Left/Right / A/D]: Move | [Space]: Fire | [R]: Reset | [ESC]: Exit Game",
                      1, 0x8A8A8Au);
 
@@ -236,14 +239,14 @@ static void game_on_key(window_t *win, uint8_t key, uint8_t scancode)
     if (key == 27) { /* ESC */
         pid_t pid = process_get_current() ? process_get_current()->pid : 1;
         gaming_unregister_game(pid);
-        window_close(win);
+        wm_close(win);
         s_game_window = NULL;
         return;
     }
 
     if (key == 'r' || key == 'R') {
         reset_game_state();
-        window_invalidate(win);
+        game_window_invalidate(win);
         return;
     }
 
@@ -253,18 +256,18 @@ static void game_on_key(window_t *win, uint8_t key, uint8_t scancode)
     if (key == 'a' || key == 'A' || scancode == 0x4B) {
         s_ship_x -= 14;
         if (s_ship_x < 10) s_ship_x = 10;
-        window_invalidate(win);
+        game_window_invalidate(win);
     }
     /* D / Right Arrow (scancode 0x4D) */
     else if (key == 'd' || key == 'D' || scancode == 0x4D) {
         s_ship_x += 14;
         if (s_ship_x > GAME_WIN_WIDTH - 38) s_ship_x = GAME_WIN_WIDTH - 38;
-        window_invalidate(win);
+        game_window_invalidate(win);
     }
     /* Space: Fire laser */
     else if (key == ' ') {
         fire_laser();
-        window_invalidate(win);
+        game_window_invalidate(win);
     }
 }
 
@@ -276,18 +279,18 @@ void demo_game_init(void)
 window_t *demo_game_launch(void)
 {
     if (s_game_window) {
-        window_focus(s_game_window);
+        wm_set_focus(s_game_window);
         return s_game_window;
     }
 
     reset_game_state();
 
-    s_game_window = window_create("ZERO Strike - Arcade Demo", 120, 80,
+    s_game_window = wm_create_window("ZERO Strike - Arcade Demo", 120, 80,
                                   GAME_WIN_WIDTH, GAME_WIN_HEIGHT,
-                                  WINDOW_FLAG_TITLED | WINDOW_FLAG_CLOSABLE);
+                                  WINDOW_FLAG_RESIZABLE);
     if (!s_game_window) return NULL;
 
-    s_game_window->paint = game_paint;
+    s_game_window->on_paint = game_paint;
     s_game_window->on_key = game_on_key;
 
     /* Register game with Gaming Mode subsystem */
