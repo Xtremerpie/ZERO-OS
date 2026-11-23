@@ -8,7 +8,7 @@
 #include "net/socket.h"
 #include "net/dhcp.h"
 #include "zero/log.h"
-#include "lib/kprintf.h"
+#include "zero/log.h"
 
 void net_report_generate(void)
 {
