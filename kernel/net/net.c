@@ -11,7 +11,7 @@
 #include "security/firewall.h"
 #include "zero/log.h"
 #include "zero/spinlock.h"
-#include "lib/string.h"
+#include "zero/string.h"
 
 static net_if_t   *g_interfaces = NULL;
 static size_t      g_num_interfaces = 0;
