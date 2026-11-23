@@ -400,6 +400,28 @@ enum vmm_status vmm_init(const struct boot_info *boot)
         }
     }
 
+    /*
+     * Map chipset MMIO windows explicitly: PMM tracks usable RAM only,
+     * while LAPIC/IOAPIC registers are reserved device memory accessed
+     * by drivers through HHDM + physical address.
+     */
+    static const uint64_t mmio_pages[] = {
+        0xFEC00000ull, /* I/O APIC */
+        0xFEE00000ull  /* Local APIC */
+    };
+    for (size_t i = 0; i < sizeof(mmio_pages) / sizeof(mmio_pages[0]); i++) {
+        uint64_t phys = mmio_pages[i];
+        uint64_t virt = hhdm_base + phys;
+        enum vmm_status s = vmm_map_page(kernel_pml4_virt, virt, phys,
+                                         VMM_FLAG_WRITABLE | VMM_FLAG_NX |
+                                         VMM_FLAG_NOCACHE);
+        if (s != VMM_OK) {
+            kpanic("vmm: failed to map chipset MMIO page 0x%016lx: %s",
+                   phys, vmm_status_name(s));
+        }
+    }
+    KLOG_INFO("vmm", "mapped x86 IOAPIC/LAPIC MMIO windows (UC)");
+
     /* 3. Map Kernel ELF sections with strict W^X permissions */
     uint64_t k_phys_base = boot->kernel_phys_base;
     uint64_t k_virt_base = (uint64_t)(uintptr_t)__kernel_start;
