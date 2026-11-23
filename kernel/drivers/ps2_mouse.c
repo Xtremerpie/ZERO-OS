@@ -125,7 +125,7 @@ static void ps2_mouse_irq_handler(struct interrupt_frame *frame)
         uint8_t b = inb(PS2_DATA_PORT);
         ps2_mouse_handle_byte(b);
     }
-    apic_send_eoi();
+    apic_eoi();
 }
 
 int ps2_mouse_init(void)
