@@ -121,4 +121,3 @@ void exception_dispatch(struct interrupt_frame *frame)
     KLOG_WARN("interrupt", "unhandled interrupt vector 0x%02lx at rip=0x%016lx",
               frame->vector, frame->rip);
 }
-}
