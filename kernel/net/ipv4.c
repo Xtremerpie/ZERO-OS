@@ -9,7 +9,7 @@
 #include "net/udp.h"
 #include "net/tcp.h"
 #include "zero/log.h"
-#include "lib/string.h"
+#include "zero/string.h"
 
 static uint16_t g_ipv4_packet_id = 1;
 
