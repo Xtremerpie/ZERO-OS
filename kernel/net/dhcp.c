@@ -4,6 +4,7 @@
  */
 #include "net/dhcp.h"
 #include "net/udp.h"
+#include "net/ipv4.h"
 #include "zero/log.h"
 #include "lib/string.h"
 
