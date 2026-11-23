@@ -129,15 +129,15 @@ bool firewall_filter(net_buf_t *buf, firewall_dir_t direction)
     if (!buf || buf->len < sizeof(eth_hdr_t)) return false;
 
     const eth_hdr_t *eth = (const eth_hdr_t *)buf->data;
-    uint16_t ethertype = ntohs(eth->type);
+    uint16_t ethertype = ntohs(eth->ethertype);
 
     /* Allow ARP frames unconditionally for host address resolution */
-    if (ethertype == ETHERTYPE_ARP) {
+    if (ethertype == ETH_TYPE_ARP) {
         return true;
     }
 
     /* Only inspect IPv4 traffic; other ethertypes pass default */
-    if (ethertype != ETHERTYPE_IP) {
+    if (ethertype != ETH_TYPE_IPV4) {
         return (s_default_policy == FIREWALL_ACTION_ALLOW);
     }
 
@@ -154,11 +154,15 @@ bool firewall_filter(net_buf_t *buf, firewall_dir_t direction)
     uint16_t src_port = 0;
     uint16_t dst_port = 0;
 
-    size_t ip_hdr_len = (size_t)((ip->ver_ihl & 0x0Fu) * 4u);
+    size_t ip_hdr_len = (size_t)((ip->version_ihl & 0x0Fu) * 4u);
+    if (ip_hdr_len < IPV4_MIN_HLEN || buf->len < sizeof(eth_hdr_t) + ip_hdr_len) {
+        s_blocked_count++;
+        return false;
+    }
     const uint8_t *transport = buf->data + sizeof(eth_hdr_t) + ip_hdr_len;
     size_t transport_len = buf->len - sizeof(eth_hdr_t) - ip_hdr_len;
 
-    if (proto == IP_PROTO_TCP || proto == IP_PROTO_UDP) {
+    if (proto == IPV4_PROTO_TCP || proto == IPV4_PROTO_UDP) {
         if (transport_len >= 4) {
             src_port = ntohs(*(const uint16_t *)(transport));
             dst_port = ntohs(*(const uint16_t *)(transport + 2));
