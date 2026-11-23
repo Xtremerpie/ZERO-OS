@@ -6,7 +6,7 @@
 #include "net/arp.h"
 #include "net/ipv4.h"
 #include "zero/log.h"
-#include "lib/string.h"
+#include "zero/string.h"
 
 const uint8_t ETH_BROADCAST_MAC[NET_ETH_ALEN] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
