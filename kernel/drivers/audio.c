@@ -21,7 +21,6 @@ static audio_device_t s_audio_dev = {
     .initialized = false
 };
 
-static uint8_t s_pcm_ring_buffer[AUDIO_BUFFER_SIZE_BYTES];
 static size_t s_ring_head = 0;
 static size_t s_ring_tail = 0;
 static size_t s_ring_used = 0;
