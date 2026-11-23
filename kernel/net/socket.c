@@ -4,6 +4,7 @@
  */
 #include "net/socket.h"
 #include "net/udp.h"
+#include "net/ipv4.h"
 #include "zero/log.h"
 #include "zero/spinlock.h"
 #include "zero/string.h"
