@@ -87,6 +87,7 @@ pci_device_t *pci_find_class(uint8_t class_code, uint8_t subclass);
 
 /* Device list access */
 size_t pci_device_count(void);
+#define pci_get_device_count() pci_device_count()
 pci_device_t *pci_get_device(size_t index);
 
 /* Look up human-readable class description */
