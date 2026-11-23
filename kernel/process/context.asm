@@ -46,6 +46,9 @@ context_switch:
     mov r13, [rsi + 2*8]
     mov r14, [rsi + 1*8]
     mov r15, [rsi + 0*8]
+    ; Initial argument registers for a newly-created thread.
+    mov rdi, [rsi + 9*8]
+    mov rsi, [rsi + 10*8]
 
     ; 3. Jump to next RIP via return address placement
     mov rax, [rsi + 6*8]
