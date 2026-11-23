@@ -207,7 +207,7 @@ bool gaming_load_config(gaming_config_t *out_cfg)
     int64_t bytes = vfs_read(file, buf, sizeof(buf) - 1);
     vfs_close(file);
     if (bytes <= 0) { *out_cfg = s_config; return false; }
-    buf[(size_t)bytes < sizeof(buf) ? (size_t)bytes : sizeof(buf) - 1] = '\\0';
+    buf[(size_t)bytes < sizeof(buf) ? (size_t)bytes : sizeof(buf) - 1] = '\0';
     if (strstr(buf, "auto_switch=0")) s_config.auto_switch_on_launch = false;
     if (strstr(buf, "pause_ai=0")) s_config.pause_ai_background = false;
     if (strstr(buf, "target_fps=30")) s_config.target_fps = 30;
@@ -222,11 +222,11 @@ bool gaming_save_config(const gaming_config_t *cfg)
     s_config = *cfg;
     char buf[128];
     size_t pos = 0;
-    const char *a = s_config.auto_switch_on_launch ? "auto_switch=1\\n" : "auto_switch=0\\n";
-    const char *b = s_config.pause_ai_background ? "pause_ai=1\\n" : "pause_ai=0\\n";
+    const char *a = s_config.auto_switch_on_launch ? "auto_switch=1\n" : "auto_switch=0\n";
+    const char *b = s_config.pause_ai_background ? "pause_ai=1\n" : "pause_ai=0\n";
     while (*a && pos + 1 < sizeof(buf)) buf[pos++] = *a++;
     while (*b && pos + 1 < sizeof(buf)) buf[pos++] = *b++;
-    const char *fps = "target_fps=60\\n";
+    const char *fps = "target_fps=60\n";
     while (*fps && pos + 1 < sizeof(buf)) buf[pos++] = *fps++;
     file_t *file = vfs_open(GAMING_CONFIG_PATH, O_WRONLY | O_CREAT | O_TRUNC);
     if (!file) return false;
