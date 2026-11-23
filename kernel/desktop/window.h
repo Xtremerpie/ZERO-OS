@@ -55,6 +55,11 @@ typedef struct window {
     int32_t         y;
     int32_t         width;
     int32_t         height;
+    /* Legacy geometry aliases retained for older desktop apps. */
+    int32_t         w;
+    int32_t         h;
+    int32_t         content_x, content_y, content_w, content_h;
+    uint8_t         icon_glyph;
 
     /* Saved geometry for maximize / restore */
     int32_t         saved_x;
@@ -103,6 +108,10 @@ void wm_minimize(window_t *win);
 void wm_maximize(window_t *win);
 void wm_restore(window_t *win);
 void wm_close(window_t *win);
+
+/* Compatibility names used by earlier desktop modules. */
+#define window_focus(win) wm_set_focus(win)
+#define window_invalidate(win) ((void)(win))
 
 /* Query and hit-testing */
 window_t *wm_get_at(int32_t x, int32_t y);
