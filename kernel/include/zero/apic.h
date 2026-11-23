@@ -52,4 +52,6 @@ void apic_eoi(void);
 
 /* Retrieve APIC ID of current CPU. */
 uint32_t apic_get_id(void);
-\n/* Compatibility name used by early PS/2 driver revisions. */\n#define apic_send_eoi() apic_eoi()\n
+
+/* Compatibility name used by early PS/2 driver revisions. */
+#define apic_send_eoi() apic_eoi()
