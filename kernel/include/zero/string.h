@@ -18,3 +18,4 @@ char *strcat(char *dst, const char *src);
 char *strncat(char *dst, const char *src, size_t n);
 
 char *strstr(const char *haystack, const char *needle);
+char *strchr(const char *s, int c);
