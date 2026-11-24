@@ -14,6 +14,7 @@
 #include "process/process.h"
 #include "zero/log.h"
 #include "zero/timer.h"
+#include "zero/cpu.h"
 
 static void dummy_sched_task(void *arg)
 {
@@ -63,9 +64,15 @@ bool sched_run_selftests(void)
     uint32_t saved_slice = running ? running->time_slice : 0;
     if (running) running->time_slice = UINT32_MAX;
 
-    /* Advance 1 tick: should still be sleeping */
+    /* Freeze APIC interrupts so this synthetic deadline check cannot race
+     * the real hardware timer while inspecting the sleeper state. */
+    uint64_t saved_rflags = read_rflags();
+    cli();
+
+    /* Advance one scheduler tick without advancing the hardware clock. */
     scheduler_tick();
     if (sleeper->state != THREAD_STATE_SLEEPING) {
+        write_rflags(saved_rflags);
         if (running) running->time_slice = saved_slice;
         thread_destroy(sleeper);
         KLOG_ERROR("selftest", "Scheduler test 4 failed: woke up too early");
@@ -77,6 +84,7 @@ bool sched_run_selftests(void)
     sleeper->sleep_deadline = timer_get_ticks();
     scheduler_tick();
 
+    write_rflags(saved_rflags);
     if (running) running->time_slice = saved_slice;
 
     if (sleeper->state != THREAD_STATE_READY) {
