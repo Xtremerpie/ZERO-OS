@@ -131,7 +131,24 @@ static void acpi_parse_hpet(const acpi_sdt_header_t *table)
 
 static inline size_t rsd2_len(const acpi_rsdp2_t *r)
 {
-    return (r->length >= sizeof(acpi_rsdp2_t)) ? r->length : sizeof(acpi_rsdp2_t);
+    return (r->length >= sizeof(acpi_rsdp2_t) && r->length <= 4096)
+               ? r->length : sizeof(acpi_rsdp2_t);
+}
+
+/* Firmware tables are not guaranteed to live in PMM-usable RAM. Map each
+ * trusted ACPI physical range into the HHDM before dereferencing it. */
+static const acpi_sdt_header_t *acpi_map_sdt(uint64_t phys)
+{
+    if (!phys || vmm_ensure_hhdm_mapping(phys, sizeof(acpi_sdt_header_t)) != VMM_OK)
+        return NULL;
+
+    const acpi_sdt_header_t *table =
+        (const acpi_sdt_header_t *)vmm_phys_to_virt(phys);
+    if (table->length < sizeof(acpi_sdt_header_t) || table->length > (1024u * 1024u))
+        return NULL;
+    if (vmm_ensure_hhdm_mapping(phys, table->length) != VMM_OK)
+        return NULL;
+    return table;
 }
 
 bool acpi_init(void *rsdp_address)
@@ -148,6 +165,15 @@ bool acpi_init(void *rsdp_address)
 
     if (!rsdp) {
         KLOG_WARN("acpi", "ACPI RSDP not found; continuing without ACPI tables");
+        return false;
+    }
+
+    /* Limine supplies the RSDP as an HHDM virtual pointer. The kernel's
+     * initial direct map covers PMM-tracked RAM, not every firmware-reserved
+     * page, so explicitly map the RSDP before its first read. */
+    uint64_t rsdp_phys = vmm_virt_to_phys_hhdm(rsdp);
+    if (vmm_ensure_hhdm_mapping(rsdp_phys, sizeof(acpi_rsdp2_t)) != VMM_OK) {
+        KLOG_ERR("acpi", "cannot map RSDP physical range 0x%016lx", rsdp_phys);
         return false;
     }
 
@@ -168,14 +194,15 @@ bool acpi_init(void *rsdp_address)
         if (rsdp2->length >= sizeof(acpi_rsdp2_t) && acpi_validate_checksum(rsdp2, rsd2_len(rsdp2))) {
             uint64_t xsdt_phys = rsdp2->xsdt_address;
             if (xsdt_phys) {
-                const acpi_sdt_header_t *xsdt = (const acpi_sdt_header_t *)vmm_phys_to_virt(xsdt_phys);
-                if (memcmp(xsdt->signature, "XSDT", 4) == 0 && acpi_validate_checksum(xsdt, xsdt->length)) {
+                const acpi_sdt_header_t *xsdt = acpi_map_sdt(xsdt_phys);
+                if (xsdt && memcmp(xsdt->signature, "XSDT", 4) == 0 &&
+                    acpi_validate_checksum(xsdt, xsdt->length)) {
                     size_t entry_count = (xsdt->length - sizeof(acpi_sdt_header_t)) / sizeof(uint64_t);
                     const uint64_t *ptrs = (const uint64_t *)((const uint8_t *)xsdt + sizeof(acpi_sdt_header_t));
 
                     for (size_t i = 0; i < entry_count && g_acpi_table_count < ACPI_MAX_TABLES; i++) {
-                        const acpi_sdt_header_t *tbl = (const acpi_sdt_header_t *)vmm_phys_to_virt(ptrs[i]);
-                        if (acpi_validate_checksum(tbl, tbl->length)) {
+                        const acpi_sdt_header_t *tbl = acpi_map_sdt(ptrs[i]);
+                        if (tbl && acpi_validate_checksum(tbl, tbl->length)) {
                             g_acpi_tables[g_acpi_table_count++] = tbl;
                         }
                     }
@@ -186,8 +213,9 @@ bool acpi_init(void *rsdp_address)
 
     /* Fallback to RSDT if XSDT was absent or produced 0 tables */
     if (g_acpi_table_count == 0 && rsdp->rsdt_address != 0) {
-        const acpi_sdt_header_t *rsdt = (const acpi_sdt_header_t *)vmm_phys_to_virt((uint64_t)rsdp->rsdt_address);
-        if (memcmp(rsdt->signature, "RSDT", 4) == 0 && acpi_validate_checksum(rsdt, rsdt->length)) {
+        const acpi_sdt_header_t *rsdt = acpi_map_sdt((uint64_t)rsdp->rsdt_address);
+        if (rsdt && memcmp(rsdt->signature, "RSDT", 4) == 0 &&
+            acpi_validate_checksum(rsdt, rsdt->length)) {
             size_t entry_count = (rsdt->length - sizeof(acpi_sdt_header_t)) / sizeof(uint32_t);
             const uint32_t *ptrs = (const uint32_t *)((const uint8_t *)rsdt + sizeof(acpi_sdt_header_t));
 
