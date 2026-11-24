@@ -479,6 +479,9 @@ def run_repeatability(n, keep):
     # ticks between otherwise identical boots, so compare the invariant message.
     timer_ticks_re = re.compile(r"(timer_test: ticks after spin: )\d+( \(delta: )\d+(\))")
     timer_pass_re = re.compile(r"(\[PASS\] timer: hardware timer interrupt delivery \(ticks: )\d+(\))")
+    # Uptime is measured from the current boot and naturally varies between starts.
+    uptime_re = re.compile(r"(timer_test: current system uptime: )\d+( ms)")
+    uptime_pass_re = re.compile(r"(\[PASS\] timer: uptime calculation \()\d+( ms\))")
 
     def normalise(output):
         kept, total = [], 0
@@ -495,6 +498,8 @@ def run_repeatability(n, keep):
                 line = pmm_alloc_re.sub("allocatable <varies>, free <varies>", line)
                 line = timer_ticks_re.sub(r"\1<varies>\2<varies>\3", line)
                 line = timer_pass_re.sub(r"\1<varies>\2", line)
+                line = uptime_re.sub(r"\1<varies>\2", line)
+                line = uptime_pass_re.sub(r"\1<varies>\2", line)
                 kept.append(line)
         return "\n".join(kept), total
 
