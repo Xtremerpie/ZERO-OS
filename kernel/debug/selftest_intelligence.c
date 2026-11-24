@@ -203,9 +203,21 @@ static bool test_ai_automation_broker(void)
         kprintf("[FAIL] intelligence: failed to reject action\n");
         return false;
     }
-    const ai_action_t *p_rej = ai_automation_get_by_id(act_rej);
-    if (!p_rej || p_rej->status != AI_ACTION_STATUS_REJECTED) {
-        kprintf("[FAIL] intelligence: rejected action status not set\n");
+    /* Rejected actions are moved out of the pending table into history.
+     * Query history rather than get_by_id(), which intentionally searches
+     * only live pending actions. */
+    ai_action_t rejected_history[AI_ACTION_HISTORY_SIZE];
+    uint32_t rejected_count = ai_automation_get_history(rejected_history, 32);
+    bool found_rejected = false;
+    for (uint32_t i = 0; i < rejected_count; i++) {
+        if (rejected_history[i].id == act_rej &&
+            rejected_history[i].status == AI_ACTION_STATUS_REJECTED) {
+            found_rejected = true;
+            break;
+        }
+    }
+    if (!found_rejected) {
+        kprintf("[FAIL] intelligence: rejected action missing from history or wrong status\n");
         return false;
     }
 
