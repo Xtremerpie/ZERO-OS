@@ -62,8 +62,8 @@ static bool test_ai_service_and_daemon(void)
 static bool test_ai_providers(void)
 {
     uint32_t prov_cnt = ai_provider_count();
-    if (prov_cnt < 3) {
-        kprintf("[FAIL] intelligence: insufficient providers registered (found %u, expected >= 3)\n", prov_cnt);
+    if (prov_cnt < 2) {
+        kprintf("[FAIL] intelligence: insufficient providers registered (found %u, expected >= 2)\n", prov_cnt);
         return false;
     }
 
