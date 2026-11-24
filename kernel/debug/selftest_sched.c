@@ -55,6 +55,13 @@ bool sched_run_selftests(void)
     /* Remove the newly-created thread from the run queue before marking it
      * asleep. The timer path must be the only path that re-enqueues it. */
     scheduler_remove_thread(sleeper);
+
+    /* Freeze APIC interrupts before sampling the hardware tick counter or
+     * publishing the synthetic deadline. Otherwise a real timer IRQ between
+     * those operations can make the new deadline expire before the test. */
+    uint64_t saved_rflags = read_rflags();
+    cli();
+
     sleeper->state = THREAD_STATE_SLEEPING;
     sleeper->sleep_deadline = timer_get_ticks() + 3; /* relative deadline */
 
@@ -63,11 +70,6 @@ bool sched_run_selftests(void)
     thread_t *running = thread_get_current();
     uint32_t saved_slice = running ? running->time_slice : 0;
     if (running) running->time_slice = UINT32_MAX;
-
-    /* Freeze APIC interrupts so this synthetic deadline check cannot race
-     * the real hardware timer while inspecting the sleeper state. */
-    uint64_t saved_rflags = read_rflags();
-    cli();
 
     /* Advance one scheduler tick without advancing the hardware clock. */
     scheduler_tick();
