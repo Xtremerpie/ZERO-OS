@@ -51,12 +51,14 @@ bool sched_run_selftests(void)
         return false;
     }
 
+    /* Remove the newly-created thread from the run queue before marking it
+     * asleep. The timer path must be the only path that re-enqueues it. */
+    scheduler_remove_thread(sleeper);
     sleeper->state = THREAD_STATE_SLEEPING;
     sleeper->sleep_deadline = timer_get_ticks() + 3; /* relative deadline */
 
-    /* Keep this unit test from triggering a real context switch. The sleeper
-     * remains queued from thread_create_kernel(); only its wakeup state is
-     * under test here. */
+    /* Keep this unit test from triggering a real context switch while checking
+     * the sleeper's wakeup transition. */
     thread_t *running = thread_get_current();
     uint32_t saved_slice = running ? running->time_slice : 0;
     if (running) running->time_slice = UINT32_MAX;
