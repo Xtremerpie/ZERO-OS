@@ -52,18 +52,17 @@ bool sched_run_selftests(void)
         return false;
     }
 
-    /* Remove the newly-created thread from the run queue before marking it
-     * asleep. The timer path must be the only path that re-enqueues it. */
-    scheduler_remove_thread(sleeper);
-
-    /* Freeze APIC interrupts before sampling the hardware tick counter or
-     * publishing the synthetic deadline. Otherwise a real timer IRQ between
-     * those operations can make the new deadline expire before the test. */
+    /* Freeze APIC interrupts before sampling the clock and assigning the
+     * synthetic deadline. A hardware tick must not expire it before the test. */
     uint64_t saved_rflags = read_rflags();
     cli();
 
+    /* Remove the newly-created thread from the run queue before marking it
+     * asleep. The timer path must be the only path that re-enqueues it. */
+    scheduler_remove_thread(sleeper);
     sleeper->state = THREAD_STATE_SLEEPING;
-    sleeper->sleep_deadline = timer_get_ticks() + 3; /* relative deadline */
+    uint64_t start_ticks = timer_get_ticks();
+    sleeper->sleep_deadline = start_ticks + 3;
 
     /* Keep this unit test from triggering a real context switch while checking
      * the sleeper's wakeup transition. */
