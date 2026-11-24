@@ -177,6 +177,15 @@ void thread_destroy(thread_t *t)
     if (!t || t->tid == 0)
         return;
 
+    /* Never reclaim a stack that the CPU may currently be executing on. */
+    if (t == current_thread || t->state == THREAD_STATE_RUNNING) {
+        KLOG_ERROR("thread", "refusing to destroy running thread '%s'", t->name);
+        return;
+    }
+
+    /* Remove every queued reference before the TCB/stack becomes reusable. */
+    scheduler_remove_thread(t);
+
     uint64_t flags;
     spin_lock_irqsave(&thread_lock, &flags);
 
