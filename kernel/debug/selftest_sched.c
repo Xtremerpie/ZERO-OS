@@ -13,6 +13,7 @@
 #include "process/thread.h"
 #include "process/process.h"
 #include "zero/log.h"
+#include "zero/timer.h"
 
 static void dummy_sched_task(void *arg)
 {
@@ -51,11 +52,19 @@ bool sched_run_selftests(void)
     }
 
     sleeper->state = THREAD_STATE_SLEEPING;
-    sleeper->sleep_deadline = 3; /* 3 ticks */
+    sleeper->sleep_deadline = timer_get_ticks() + 3; /* relative deadline */
+
+    /* Keep this unit test from triggering a real context switch. The sleeper
+     * remains queued from thread_create_kernel(); only its wakeup state is
+     * under test here. */
+    thread_t *running = thread_get_current();
+    uint32_t saved_slice = running ? running->time_slice : 0;
+    if (running) running->time_slice = UINT32_MAX;
 
     /* Advance 1 tick: should still be sleeping */
     scheduler_tick();
     if (sleeper->state != THREAD_STATE_SLEEPING) {
+        if (running) running->time_slice = saved_slice;
         thread_destroy(sleeper);
         KLOG_ERROR("selftest", "Scheduler test 4 failed: woke up too early");
         return false;
@@ -64,6 +73,8 @@ bool sched_run_selftests(void)
     /* Advance remaining 2 ticks */
     scheduler_tick();
     scheduler_tick();
+
+    if (running) running->time_slice = saved_slice;
 
     if (sleeper->state != THREAD_STATE_READY) {
         thread_destroy(sleeper);
