@@ -32,26 +32,29 @@ context_switch:
     ; Save RSP
     mov [rdi + 8*8], rsp
 
-    ; 2. Switch stack and restore registers from next
-    mov rsp, [rsi + 8*8]
+    ; 2. Preserve the next-context pointer before restoring RSI itself.
+    ; RSI is the second argument register, but the target thread's saved RSI
+    ; is restored below and must not be used for further context loads.
+    mov rdx, rsi
+    mov rsp, [rdx + 8*8]
 
     ; Restore RFLAGS
-    push qword [rsi + 7*8]
+    push qword [rdx + 7*8]
     popfq
 
     ; Restore callee-saved registers
-    mov rbp, [rsi + 5*8]
-    mov rbx, [rsi + 4*8]
-    mov r12, [rsi + 3*8]
-    mov r13, [rsi + 2*8]
-    mov r14, [rsi + 1*8]
-    mov r15, [rsi + 0*8]
+    mov rbp, [rdx + 5*8]
+    mov rbx, [rdx + 4*8]
+    mov r12, [rdx + 3*8]
+    mov r13, [rdx + 2*8]
+    mov r14, [rdx + 1*8]
+    mov r15, [rdx + 0*8]
     ; Initial argument registers for a newly-created thread.
-    mov rdi, [rsi + 9*8]
-    mov rsi, [rsi + 10*8]
+    mov rdi, [rdx + 9*8]
+    mov rsi, [rdx + 10*8]
 
     ; 3. Jump to next RIP via return address placement
-    mov rax, [rsi + 6*8]
+    mov rax, [rdx + 6*8]
     mov [rsp], rax
     ret
 
