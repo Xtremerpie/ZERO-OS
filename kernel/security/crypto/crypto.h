@@ -35,7 +35,7 @@ void crypto_sha256(const void *data, size_t len, uint8_t digest[SHA256_DIGEST_SI
 /* Timing-attack resistant constant-time comparison (returns 0 if equal) */
 int crypto_memcmp_secure(const void *a, const void *b, size_t len);
 
-/* Cryptographically secure pseudo-random byte generator */
+/* Best-effort pseudo-random byte generator; not a cryptographic entropy source. */
 sec_result_t crypto_random_bytes(void *out_buf, size_t len);
 
 /* Digital signature verification against public key */
