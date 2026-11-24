@@ -94,7 +94,10 @@ thread_t *thread_create_kernel(process_t *proc, const char *name, void (*entry_f
     t->kstack_top = (void *)(uintptr_t)top;
 
     /* Setup initial register context for context_switch */
-    t->context.rsp = (uint64_t)(uintptr_t)t->kstack_top;
+    /* context_switch writes the initial RIP at [RSP] before RET. Keep
+     * that slot below the heap tail canary, and leave the trampoline entry
+     * with the SysV AMD64 required RSP % 16 == 8 alignment. */
+    t->context.rsp = (uint64_t)(uintptr_t)t->kstack_top - 16;
     t->context.rip = (uint64_t)(uintptr_t)thread_trampoline;
     t->context.rdi = (uint64_t)(uintptr_t)entry_fn; /* trampoline arg 0 */
     t->context.rsi = (uint64_t)(uintptr_t)arg;      /* trampoline arg 1 */
