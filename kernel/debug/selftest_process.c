@@ -59,7 +59,13 @@ bool process_run_selftests(void)
 
     /* 3. Thread Creation (Kernel thread) */
     thread_t *t1 = thread_create_kernel(proc1, "t1_worker", dummy_thread_entry, (void *)0x1234);
-    if (!t1 || t1->tid <= 0 || t1->state != THREAD_STATE_READY) {
+    /* The timer may schedule this newly enqueued worker before this test
+     * inspects it. READY, RUNNING, and TERMINATED are all valid outcomes;
+     * the test is checking successful creation and TCB initialization. */
+    if (!t1 || t1->tid <= 0 ||
+        (t1->state != THREAD_STATE_READY &&
+         t1->state != THREAD_STATE_RUNNING &&
+         t1->state != THREAD_STATE_TERMINATED)) {
         KLOG_ERROR("selftest", "Process test 3 failed: thread_create_kernel failed");
         return false;
     }
