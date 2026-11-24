@@ -42,6 +42,8 @@ bool scheduler_is_active(void);
 
 /* Add a ready thread to the scheduler's run queue. */
 void scheduler_add_thread(thread_t *thread);
+/* Remove a thread from the ready queue before destroying or sleeping it. */
+void scheduler_remove_thread(thread_t *thread);
 
 /* Voluntarily yield the remaining time slice to the next ready thread. */
 void scheduler_yield(void);
