@@ -161,7 +161,14 @@ static bool test_2d_primitives(void)
     fb.width = sw;
     fb.height = sh;
     fb.pitch = sw * sizeof(uint32_t);
+    fb.pixels_per_pitch = sw;
     fb.bpp = 32;
+    /* Match the 32-bit RGB format used by the real QEMU framebuffer.
+     * Drawing helpers require an initialized surface and use channel shifts. */
+    fb.red_shift = 16;
+    fb.green_shift = 8;
+    fb.blue_shift = 0;
+    fb.initialized = true;
     fb_reset_clip(&fb);
 
     /* Test fill rect */
