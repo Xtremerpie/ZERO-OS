@@ -103,24 +103,25 @@ sec_result_t perm_check(const char *path, uint32_t uid, uint32_t gid, uint32_t r
 
     bool allowed = false;
 
+    /* Callers may request either POSIX mode-bit constants (0400/0200/0100,
+     * etc.) or the compact R/W/X mask (4/2/1). Normalize the request to
+     * the selected identity class before comparing it with stored bits. */
+    uint32_t requested = req_mode & 0x07u;
+    if (req_mode & 0700u) {
+        requested = (req_mode >> 6) & 0x07u;
+    } else if (req_mode & 0070u) {
+        requested = (req_mode >> 3) & 0x07u;
+    }
+
     if (uid == f_uid) {
-        /* Owner checks: req_mode & 0x7 against user bits [8..6] */
         uint32_t user_bits = (f_mode >> 6) & 0x07u;
-        if ((user_bits & req_mode) == req_mode) {
-            allowed = true;
-        }
+        allowed = (user_bits & requested) == requested;
     } else if (gid == f_gid) {
-        /* Group checks: req_mode & 0x7 against group bits [5..3] */
         uint32_t group_bits = (f_mode >> 3) & 0x07u;
-        if ((group_bits & req_mode) == req_mode) {
-            allowed = true;
-        }
+        allowed = (group_bits & requested) == requested;
     } else {
-        /* Other checks: req_mode & 0x7 against other bits [2..0] */
         uint32_t other_bits = f_mode & 0x07u;
-        if ((other_bits & req_mode) == req_mode) {
-            allowed = true;
-        }
+        allowed = (other_bits & requested) == requested;
     }
 
     if (!allowed) {
