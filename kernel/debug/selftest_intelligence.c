@@ -206,7 +206,7 @@ static bool test_ai_automation_broker(void)
     /* Rejected actions are moved out of the pending table into history.
      * Query history rather than get_by_id(), which intentionally searches
      * only live pending actions. */
-    ai_action_t rejected_history[AI_ACTION_HISTORY_SIZE];
+    ai_action_t rejected_history[32];
     uint32_t rejected_count = ai_automation_get_history(rejected_history, 32);
     bool found_rejected = false;
     for (uint32_t i = 0; i < rejected_count; i++) {
