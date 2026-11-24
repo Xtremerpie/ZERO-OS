@@ -475,6 +475,10 @@ def run_repeatability(n, keep):
     cr3_re = re.compile(r"CR3=0x[0-9a-f]+")
     entries_re = re.compile(r"(memory map: |memory map validated: )\d+ (entries from bootloader|bootloader entries -> )\d*(?: regions)?")
     pmm_alloc_re = re.compile(r"allocatable \d+ KiB \(\d+ frames\), free \d+ frames")
+    # APIC timer delivery is real-time: interrupt counts naturally differ by a few
+    # ticks between otherwise identical boots, so compare the invariant message.
+    timer_ticks_re = re.compile(r"(timer_test: ticks after spin: )\d+( \(delta: )\d+(\))")
+    timer_pass_re = re.compile(r"(\[PASS\] timer: hardware timer interrupt delivery \(ticks: )\d+(\))")
 
     def normalise(output):
         kept, total = [], 0
@@ -489,6 +493,8 @@ def run_repeatability(n, keep):
                 line = entries_re.sub(lambda m: m.group(1) + "<varies> " + m.group(2).rstrip(" ->") + (" <varies> regions" if "validated" in m.group(1) else ""), line)
                 line = pmm_init_re.sub("initialized: <varies> frames tracked, bitmap <varies> bytes", line)
                 line = pmm_alloc_re.sub("allocatable <varies>, free <varies>", line)
+                line = timer_ticks_re.sub(r"\1<varies>\2<varies>\3", line)
+                line = timer_pass_re.sub(r"\1<varies>\2", line)
                 kept.append(line)
         return "\n".join(kept), total
 
