@@ -99,6 +99,9 @@ void vmm_invlpg(uint64_t virt);
 /* Physical to virtual conversion via the HHDM. */
 void *vmm_phys_to_virt(uint64_t phys);
 
+/* Ensure a physical range is accessible through the HHDM (for firmware tables). */
+enum vmm_status vmm_ensure_hhdm_mapping(uint64_t phys, size_t length);
+
 /* Virtual to physical conversion for an address within the HHDM window. */
 uint64_t vmm_virt_to_phys_hhdm(const void *virt);
 
