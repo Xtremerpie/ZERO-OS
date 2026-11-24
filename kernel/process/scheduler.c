@@ -55,6 +55,9 @@ void scheduler_init(void)
         kpanic("scheduler: failed to create idle thread");
     }
     idle_thread->priority = 0;
+    /* thread_create_kernel enqueues by default; the idle thread is selected
+     * only as the scheduler fallback and must never sit in the normal queue. */
+    scheduler_remove_thread(idle_thread);
 
     scheduler_active = true;
     KLOG_INFO("sched", "preemptive round-robin scheduler active (idle thread TID: %d, profile: NORMAL)",
@@ -74,6 +77,16 @@ void scheduler_add_thread(thread_t *thread)
     uint64_t flags;
     spin_lock_irqsave(&sched_lock, &flags);
 
+    /* A thread must appear at most once in the ready queue. */
+    for (size_t i = 0; i < ready_count; i++) {
+        size_t idx = (ready_head + i) % MAX_READY_QUEUE;
+        if (ready_queue[idx] == thread) {
+            thread->state = THREAD_STATE_READY;
+            spin_unlock_irqrestore(&sched_lock, flags);
+            return;
+        }
+    }
+
     if (ready_count < MAX_READY_QUEUE) {
         thread->state = THREAD_STATE_READY;
         ready_queue[ready_tail] = thread;
@@ -83,6 +96,34 @@ void scheduler_add_thread(thread_t *thread)
     } else {
         KLOG_ERROR("sched", "ready queue overflow, cannot enqueue thread '%s'", thread->name);
     }
+
+    spin_unlock_irqrestore(&sched_lock, flags);
+}
+
+void scheduler_remove_thread(thread_t *thread)
+{
+    if (!thread)
+        return;
+
+    uint64_t flags;
+    spin_lock_irqsave(&sched_lock, &flags);
+
+    size_t original_count = ready_count;
+    size_t kept = 0;
+    for (size_t i = 0; i < original_count; i++) {
+        thread_t *entry = ready_queue[(ready_head + i) % MAX_READY_QUEUE];
+        if (entry && entry != thread) {
+            ready_queue[(ready_head + kept) % MAX_READY_QUEUE] = entry;
+            kept++;
+        }
+    }
+
+    for (size_t i = kept; i < original_count; i++)
+        ready_queue[(ready_head + i) % MAX_READY_QUEUE] = NULL;
+
+    ready_count = kept;
+    ready_tail = (ready_head + ready_count) % MAX_READY_QUEUE;
+    stats.ready_threads_count = (uint32_t)ready_count;
 
     spin_unlock_irqrestore(&sched_lock, flags);
 }
