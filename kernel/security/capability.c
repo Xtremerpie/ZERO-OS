@@ -119,7 +119,9 @@ sec_result_t cap_check_resource(uint32_t pid, cap_type_t type, const char *resou
 
     for (size_t i = 0; i < CAP_MAX_ENTRIES; i++) {
         cap_entry_t *entry = &s_cap_table[i];
-        if (entry->in_use && !entry->revoked && (entry->pid == pid || entry->pid == 0)) {
+        /* PID 0 authority is handled by the early return above; kernel-owned
+         * capabilities must never be inherited by ordinary processes. */
+        if (entry->in_use && !entry->revoked && entry->pid == pid) {
             if (entry->type == type && (entry->perms & req_perms) == req_perms) {
                 /* Check if resource matches or is a prefix directory */
                 if (strcmp(entry->resource, resource) == 0 ||
