@@ -482,6 +482,8 @@ def run_repeatability(n, keep):
     # Uptime is measured from the current boot and naturally varies between starts.
     uptime_re = re.compile(r"(timer_test: current system uptime: )\d+( ms)")
     uptime_pass_re = re.compile(r"(\[PASS\] timer: uptime calculation \()\d+( ms\))")
+    # Gaming test lifecycle duration is timer-driven and can differ by one tick.
+    gaming_runtime_re = re.compile(r"(unregistered game 'TestGame88' \(PID: 88, runtime: )\d+( ms\))")
 
     def normalise(output):
         kept, total = [], 0
@@ -500,6 +502,7 @@ def run_repeatability(n, keep):
                 line = timer_pass_re.sub(r"\1<varies>\2", line)
                 line = uptime_re.sub(r"\1<varies>\2", line)
                 line = uptime_pass_re.sub(r"\1<varies>\2", line)
+                line = gaming_runtime_re.sub(r"\1<varies>\2", line)
                 kept.append(line)
         return "\n".join(kept), total
 
