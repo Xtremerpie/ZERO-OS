@@ -169,7 +169,10 @@ int crypto_memcmp_secure(const void *a, const void *b, size_t len)
     return (int)diff;
 }
 
-static uint64_t s_entropy_state = 0x5A45524F53454355ull; /* "ZEROSECU" */
+/* Best-effort boot-time PRNG state. This is not a cryptographic RNG until
+ * a hardware entropy source is detected and mixed into the state. */
+static uint64_t s_entropy_state = 0x5A45524F53454355ull;
+static uint64_t s_entropy_counter = 1;
 
 void crypto_init(void)
 {
@@ -179,7 +182,8 @@ void crypto_init(void)
     __asm__ volatile("rdtsc" : "=a"(lo), "=d"(hi));
     tsc = ((uint64_t)hi << 32) | lo;
 #endif
-    s_entropy_state ^= (tsc ? tsc : 0xDEADBEEFCAFEull);
+    s_entropy_state ^= tsc ^ (uint64_t)(uintptr_t)&s_entropy_state;
+    if (s_entropy_state == 0) s_entropy_state = 0x9E3779B97F4A7C15ull;
 }
 
 sec_result_t crypto_random_bytes(void *out_buf, size_t len)
@@ -188,15 +192,14 @@ sec_result_t crypto_random_bytes(void *out_buf, size_t len)
     uint8_t *bytes = (uint8_t *)out_buf;
 
     for (size_t i = 0; i < len; i++) {
-        /* 64-bit linear congruential step mixed with TSC */
-        uint64_t tsc = 0;
-#if defined(__x86_64__)
-        uint32_t lo, hi;
-        __asm__ volatile("rdtsc" : "=a"(lo), "=d"(hi));
-        tsc = ((uint64_t)hi << 32) | lo;
-#endif
-        s_entropy_state = s_entropy_state * 6364136223846793005ull + (tsc ^ 1442695040888963407ull);
-        bytes[i] = (uint8_t)((s_entropy_state >> 33) ^ (s_entropy_state & 0xFF));
+        /* xorshift64* with a monotonically advancing counter. */
+        uint64_t x = s_entropy_state ^ (s_entropy_counter++ * 0x9E3779B97F4A7C15ull);
+        x ^= x >> 12;
+        x ^= x << 25;
+        x ^= x >> 27;
+        s_entropy_state = x;
+        uint64_t sample = x * 0x2545F4914F6CDD1Dull;
+        bytes[i] = (uint8_t)(sample >> 56);
     }
     return SEC_OK;
 }
