@@ -13,6 +13,20 @@
 static ai_session_t s_sessions[AI_MAX_SESSIONS];
 static uint32_t     s_session_seq = 0;
 
+/* ASCII case-insensitive command prefix matcher for user-entered intents. */
+static bool starts_with_ci(const char *text, const char *prefix)
+{
+    if (!text || !prefix) return false;
+    while (*prefix) {
+        char a = *text++;
+        char b = *prefix++;
+        if (a >= 'A' && a <= 'Z') a = (char)(a - 'A' + 'a');
+        if (b >= 'A' && b <= 'Z') b = (char)(b - 'A' + 'a');
+        if (a != b) return false;
+    }
+    return true;
+}
+
 void ai_engine_init(void)
 {
     memset(s_sessions, 0, sizeof(s_sessions));
@@ -142,20 +156,20 @@ bool ai_engine_process_prompt(uint32_t session_id, const char *user_input, ai_en
     char target[AI_ACTION_TARGET_LEN] = "";
     char desc[AI_ACTION_DESC_LEN] = "";
 
-    if (strncmp(user_input, "open ", 5) == 0 || strncmp(user_input, "launch ", 7) == 0) {
+    if (starts_with_ci(user_input, "open ") || starts_with_ci(user_input, "launch ")) {
         act_type = AI_ACTION_APP_LAUNCH;
-        const char *arg = (user_input[0] == 'o') ? (user_input + 5) : (user_input + 7);
+        const char *arg = starts_with_ci(user_input, "open ") ? (user_input + 5) : (user_input + 7);
         strncpy(target, arg, sizeof(target) - 1);
         snprintf(desc, sizeof(desc), "Launch application '%s'", target);
-    } else if (strncmp(user_input, "read ", 5) == 0) {
+    } else if (starts_with_ci(user_input, "read ")) {
         act_type = AI_ACTION_FILE_READ;
         strncpy(target, user_input + 5, sizeof(target) - 1);
         snprintf(desc, sizeof(desc), "Read authorized file '%s'", target);
-    } else if (strncmp(user_input, "write ", 6) == 0) {
+    } else if (starts_with_ci(user_input, "write ")) {
         act_type = AI_ACTION_FILE_WRITE;
         strncpy(target, user_input + 6, sizeof(target) - 1);
         snprintf(desc, sizeof(desc), "Create/modify file '%s'", target);
-    } else if (strncmp(user_input, "notify ", 7) == 0) {
+    } else if (starts_with_ci(user_input, "notify ")) {
         act_type = AI_ACTION_NOTIFICATION;
         strncpy(target, user_input + 7, sizeof(target) - 1);
         snprintf(desc, sizeof(desc), "Post desktop notification '%s'", target);
