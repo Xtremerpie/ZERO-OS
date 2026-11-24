@@ -70,8 +70,9 @@ bool sched_run_selftests(void)
         return false;
     }
 
-    /* Advance remaining 2 ticks */
-    scheduler_tick();
+    /* Move the synthetic deadline to now, then verify the timer tick wakes it.
+     * The test does not mutate the global hardware tick counter. */
+    sleeper->sleep_deadline = timer_get_ticks();
     scheduler_tick();
 
     if (running) running->time_slice = saved_slice;
