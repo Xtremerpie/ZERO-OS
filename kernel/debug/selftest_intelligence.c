@@ -163,27 +163,32 @@ static bool test_ai_automation_broker(void)
         return false;
     }
 
-    /* Sensitive action: FILE_WRITE -> requires approval */
-    uint32_t act_write = ai_automation_propose(1, 100, AI_ACTION_FILE_WRITE, "/data/test.txt", "Write test data");
-    if (act_write == 0) {
-        kprintf("[FAIL] intelligence: failed to propose sensitive write action\n");
+    /* Sensitive action: SERVICE_CONTROL -> requires approval.
+     * Use a non-filesystem action here so the approval-policy test is
+     * independent of sandbox path and filesystem DAC configuration. */
+    uint32_t act_sensitive = ai_automation_propose(1, 100, AI_ACTION_SERVICE_CONTROL, "daemon", "Restart daemon");
+    if (act_sensitive == 0) {
+        kprintf("[FAIL] intelligence: failed to propose sensitive service action\n");
         return false;
     }
 
-    const ai_action_t *p_write = ai_automation_get_by_id(act_write);
-    if (!p_write || p_write->status != AI_ACTION_STATUS_PENDING_APPROVAL || !p_write->requires_user_approval) {
-        kprintf("[FAIL] intelligence: sensitive action bypassed approval gate\n");
+    const ai_action_t *p_sensitive = ai_automation_get_by_id(act_sensitive);
+    if (!p_sensitive || p_sensitive->status != AI_ACTION_STATUS_PENDING_APPROVAL ||
+        !p_sensitive->requires_user_approval) {
+        kprintf("[FAIL] intelligence: sensitive action bypassed approval gate (status=%u, approval=%u)\n",
+                p_sensitive ? (uint32_t)p_sensitive->status : 0,
+                p_sensitive ? (uint32_t)p_sensitive->requires_user_approval : 0);
         return false;
     }
 
     /* Test user approval gate */
-    if (!ai_automation_approve(act_write)) {
+    if (!ai_automation_approve(act_sensitive)) {
         kprintf("[FAIL] intelligence: failed to approve pending action\n");
         return false;
     }
 
-    p_write = ai_automation_get_by_id(act_write);
-    if (p_write->status != AI_ACTION_STATUS_APPROVED) {
+    p_sensitive = ai_automation_get_by_id(act_sensitive);
+    if (!p_sensitive || p_sensitive->status != AI_ACTION_STATUS_APPROVED) {
         kprintf("[FAIL] intelligence: approved action status not updated\n");
         return false;
     }
