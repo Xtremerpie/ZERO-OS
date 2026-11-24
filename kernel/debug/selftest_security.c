@@ -59,13 +59,17 @@ static bool test_crypto_engine(void)
         return false;
     }
 
-    /* CSPRNG Random bytes generation */
+    /* Best-effort PRNG smoke test: two sequential outputs must differ.
+     * This does not establish cryptographic entropy or CSPRNG security. */
     uint8_t rnd1[16];
     uint8_t rnd2[16];
-    crypto_random_bytes(rnd1, sizeof(rnd1));
-    crypto_random_bytes(rnd2, sizeof(rnd2));
-    if (crypto_memcmp_secure(rnd1, rnd2, 16)) {
-        kprintf("[FAIL] security: crypto_random_bytes generated identical entropy buffers\n");
+    if (crypto_random_bytes(rnd1, sizeof(rnd1)) != SEC_OK ||
+        crypto_random_bytes(rnd2, sizeof(rnd2)) != SEC_OK) {
+        kprintf("[FAIL] security: crypto_random_bytes returned an error\n");
+        return false;
+    }
+    if (crypto_memcmp_secure(rnd1, rnd2, 16) == 0) {
+        kprintf("[FAIL] security: sequential PRNG outputs were identical\n");
         return false;
     }
 
