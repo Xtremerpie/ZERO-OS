@@ -484,6 +484,8 @@ def run_repeatability(n, keep):
     uptime_pass_re = re.compile(r"(\[PASS\] timer: uptime calculation \()\d+( ms\))")
     # Gaming test lifecycle duration is timer-driven and can differ by one tick.
     gaming_runtime_re = re.compile(r"(unregistered game 'TestGame88' \(PID: 88, runtime: )\d+( ms\))")
+    # Firmware allocation timing can shift the bootloader free-frame count.
+    usable_frames_re = re.compile(r"(Usable RAM:\s+\d+ MiB \()\d+( frames free\))")
 
     def normalise(output):
         kept, total = [], 0
@@ -503,6 +505,7 @@ def run_repeatability(n, keep):
                 line = uptime_re.sub(r"\1<varies>\2", line)
                 line = uptime_pass_re.sub(r"\1<varies>\2", line)
                 line = gaming_runtime_re.sub(r"\1<varies>\2", line)
+                line = usable_frames_re.sub(r"\1<varies>\2", line)
                 kept.append(line)
         return "\n".join(kept), total
 
