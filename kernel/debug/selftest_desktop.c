@@ -78,7 +78,12 @@ static bool test_framebuffer_and_clipping(void)
     fb.pitch        = mock_w * sizeof(uint32_t);
     fb.pixels_per_pitch = mock_w;
     fb.bpp          = 32;
-    fb.initialized  = true;
+    /* Match the QEMU/Limine 32-bit RGB framebuffer format. Drawing helpers
+     * deliberately reject uninitialized surfaces and pack colors by shifts. */
+    fb.red_shift     = 16;
+    fb.green_shift   = 8;
+    fb.blue_shift    = 0;
+    fb.initialized   = true;
     fb_reset_clip(&fb);
 
     /* Test damage tracking */
