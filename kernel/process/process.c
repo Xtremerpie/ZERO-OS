@@ -13,7 +13,6 @@
 
 static process_t processes[MAX_PROCESSES];
 static process_t *current_process = NULL;
-static pid_t next_pid = 1;
 static spinlock_t proc_lock = SPINLOCK_INIT("proc_lock");
 
 void process_init(void)
@@ -64,7 +63,8 @@ process_t *process_create(const char *name, pid_t parent_pid)
     }
 
     memset(proc, 0, sizeof(process_t));
-    proc->pid = next_pid++;
+    /* PIDs index the process table directly; keep PID and slot in sync. */
+    proc->pid = (pid_t)(proc - processes);
     proc->ppid = parent_pid;
     if (name)
         strncpy(proc->name, name, MAX_PROCESS_NAME - 1);
