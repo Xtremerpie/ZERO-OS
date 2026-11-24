@@ -389,8 +389,8 @@ static bool test_application_registry(void)
     uint32_t count = 0;
     const app_desc_t *apps = app_get_all(&count);
 
-    if (!apps || count != 5) {
-        kprintf("[FAIL] desktop: application registry count mismatch (%u != 5)\n", count);
+    if (!apps || count != 15) {
+        kprintf("[FAIL] desktop: application registry count mismatch (%u != 15)\n", count);
         return false;
     }
 
