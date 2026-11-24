@@ -29,7 +29,7 @@ static bool test_crypto_engine(void)
     };
     uint8_t out1[32];
     crypto_sha256("", 0, out1);
-    if (!crypto_memcmp_secure(out1, kat1_expected, 32)) {
+    if (crypto_memcmp_secure(out1, kat1_expected, 32) != 0) {
         kprintf("[FAIL] security: SHA-256 KAT 1 (empty string) failed\n");
         return false;
     }
@@ -43,7 +43,7 @@ static bool test_crypto_engine(void)
     };
     uint8_t out2[32];
     crypto_sha256("abc", 3, out2);
-    if (!crypto_memcmp_secure(out2, kat2_expected, 32)) {
+    if (crypto_memcmp_secure(out2, kat2_expected, 32) != 0) {
         kprintf("[FAIL] security: SHA-256 KAT 2 ('abc') failed\n");
         return false;
     }
@@ -52,7 +52,7 @@ static bool test_crypto_engine(void)
     uint8_t a[4] = { 1, 2, 3, 4 };
     uint8_t b[4] = { 1, 2, 3, 4 };
     uint8_t c[4] = { 1, 2, 3, 5 };
-    if (!crypto_memcmp_secure(a, b, 4) || crypto_memcmp_secure(a, c, 4)) {
+    if (crypto_memcmp_secure(a, b, 4) != 0 || crypto_memcmp_secure(a, c, 4) == 0) {
         kprintf("[FAIL] security: crypto_memcmp_secure failed\n");
         return false;
     }
