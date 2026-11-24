@@ -43,6 +43,29 @@ void *vmm_phys_to_virt(uint64_t phys)
     return (void *)(uintptr_t)(phys + hhdm_base);
 }
 
+enum vmm_status vmm_ensure_hhdm_mapping(uint64_t phys, size_t length)
+{
+    if (!vmm_initialized)
+        return VMM_ERR_NOT_INITIALIZED;
+    if (length == 0 || phys > UINT64_MAX - (uint64_t)length)
+        return VMM_ERR_INVALID_ARG;
+
+    uint64_t first = phys & ~(VMM_PAGE_SIZE - 1);
+    uint64_t end = phys + (uint64_t)length;
+    if (end > UINT64_MAX - (VMM_PAGE_SIZE - 1))
+        return VMM_ERR_INVALID_ARG;
+    uint64_t limit = (end + VMM_PAGE_SIZE - 1) & ~(VMM_PAGE_SIZE - 1);
+
+    for (uint64_t page = first; page < limit; page += VMM_PAGE_SIZE) {
+        enum vmm_status status = vmm_map_page(
+            kernel_pml4_virt, hhdm_base + page, page,
+            VMM_FLAG_WRITABLE | VMM_FLAG_NX);
+        if (status != VMM_OK)
+            return status;
+    }
+    return VMM_OK;
+}
+
 uint64_t vmm_virt_to_phys_hhdm(const void *virt)
 {
     uintptr_t va = (uintptr_t)virt;
