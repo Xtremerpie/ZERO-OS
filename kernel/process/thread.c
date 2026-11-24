@@ -86,9 +86,11 @@ thread_t *thread_create_kernel(process_t *proc, const char *name, void (*entry_f
 
     t->state = THREAD_STATE_READY;
     t->kstack_base = kstack;
-    /* Align stack top to 16 bytes, leaving space for return address */
+    /* SysV AMD64: a function entered by RET must observe RSP % 16 == 8.
+     * context_switch places RIP at [RSP] and executes RET, so the pre-RET
+     * stack pointer must be 16-byte aligned. Keep the TSS stack top aligned too. */
     uint64_t top = (uint64_t)(uintptr_t)kstack + KERNEL_STACK_SIZE;
-    top = (top & ~0xFull) - 8;
+    top &= ~0xFull;
     t->kstack_top = (void *)(uintptr_t)top;
 
     /* Setup initial register context for context_switch */
