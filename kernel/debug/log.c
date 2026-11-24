@@ -5,6 +5,9 @@
 #include "zero/log.h"
 #include "zero/serial.h"
 #include "zero/fbcon.h"
+#include "zero/spinlock.h"
+
+static spinlock_t log_lock = SPINLOCK_INIT("kernel_log");
 
 static void out_char(char c)
 {
@@ -144,26 +147,35 @@ void kvprintf(const char *fmt, va_list ap)
 
 void kprintf(const char *fmt, ...)
 {
+    uint64_t flags;
+    spin_lock_irqsave(&log_lock, &flags);
     va_list ap;
     va_start(ap, fmt);
     kvprintf(fmt, ap);
     va_end(ap);
+    spin_unlock_irqrestore(&log_lock, flags);
 }
 
 void klog(enum log_level level, const char *subsystem, const char *fmt, ...)
 {
     static const char *const names[] = { "DEBUG", "INFO ", "WARN ", "ERROR" };
-    /* Level colours on the framebuffer: grey, white, gold, crimson. */
     static const uint32_t colours[] = { 0x8A8A8A, 0xE8E8E8, 0xC9A227, 0xD0283A };
 
+    uint64_t flags;
+    spin_lock_irqsave(&log_lock, &flags);
     fbcon_set_fg(colours[level]);
-    kprintf("[%s] %s: ", names[level], subsystem);
+    out_char('[');
+    out_string(names[level], 0, true);
+    out_string("] ", 0, true);
+    out_string(subsystem ? subsystem : "(null)", 0, true);
+    out_string(": ", 0, true);
 
     va_list ap;
     va_start(ap, fmt);
     kvprintf(fmt, ap);
     va_end(ap);
 
-    kprintf("\n");
+    out_char('\n');
     fbcon_set_fg(0xE8E8E8);
+    spin_unlock_irqrestore(&log_lock, flags);
 }
