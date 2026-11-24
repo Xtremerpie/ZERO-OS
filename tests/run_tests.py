@@ -490,6 +490,10 @@ def run_repeatability(n, keep):
     def normalise(output):
         kept, total = [], 0
         for line in output.splitlines():
+            # QEMU writes host-side diagnostics to the same pipe as serial output;
+            # their arrival order relative to guest UART lines is nondeterministic.
+            if line.startswith("qemu-system-x86_64:"):
+                continue
             m = split_re.match(line)
             if m:
                 total += int(m.group(3)) if m.group(1) == "mem" else 0  # sum checked on raw bootloader lines
