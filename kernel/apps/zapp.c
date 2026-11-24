@@ -102,7 +102,9 @@ zapp_err_t zapp_validate_header(const zapp_header_t *hdr, size_t total_size)
 
     uint64_t payload_end = (uint64_t)hdr->payload_offset + hdr->payload_size;
     if (payload_end > total_size) {
-        return ZAPP_ERR_OUT_OF_BOUNDS;
+        /* The declared payload extends past the supplied package buffer:
+         * this is a truncated package, not an invalid file-entry offset. */
+        return ZAPP_ERR_BAD_SIZE;
     }
 
     return ZAPP_OK;
