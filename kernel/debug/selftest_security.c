@@ -30,7 +30,9 @@ static bool test_crypto_engine(void)
     uint8_t out1[32];
     crypto_sha256("", 0, out1);
     if (crypto_memcmp_secure(out1, kat1_expected, 32) != 0) {
-        kprintf("[FAIL] security: SHA-256 KAT 1 (empty string) failed\n");
+        kprintf("[FAIL] security: SHA-256 empty digest actual=");
+        for (size_t i = 0; i < 32; i++) kprintf("%02x", out1[i]);
+        kprintf("\n");
         return false;
     }
 
