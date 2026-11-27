@@ -595,5 +595,42 @@ __attribute__((noreturn)) void kmain(void)
     KLOG_INFO("boot", "ZERO-OS " ZERO_VERSION_STRING " boot complete: ZERO Ultimate fully operational");
     KLOG_INFO("boot", "preemptive scheduler running: yielding to idle thread");
     test_device_exit(true); /* returns unless zero.test_exit=1 */
+
+    /* Enter the interactive graphical session instead of halting at the
+     * diagnostic console. Hardware IRQ handlers enqueue input events; this
+     * loop dispatches them to the desktop shell and redraws the UI. */
+    if (fb_is_available()) {
+        KLOG_INFO("desktop", "entering interactive ZERO Desktop event loop");
+        for (;;) {
+            input_event_t ev;
+            while (input_poll_event(&ev)) {
+                if (ev.type == INPUT_KEY_DOWN) {
+                    uint8_t key = (uint8_t)input_keycode_to_ascii(ev.code, ev.modifiers);
+                    uint8_t scancode = (ev.code == KEY_F6) ? 0x40u : (uint8_t)ev.code;
+                    shell_dispatch_key(key, scancode);
+                } else if (ev.type == INPUT_MOUSE_MOVE) {
+                    cursor_move_delta(ev.dx, ev.dy);
+                    int32_t x, y;
+                    uint8_t buttons;
+                    cursor_get_state(&x, &y, &buttons);
+                    shell_dispatch_mouse(x, y, buttons);
+                } else if (ev.type == INPUT_MOUSE_BUTTON_DOWN ||
+                           ev.type == INPUT_MOUSE_BUTTON_UP) {
+                    int32_t x, y;
+                    uint8_t buttons;
+                    cursor_get_state(&x, &y, &buttons);
+                    if (ev.type == INPUT_MOUSE_BUTTON_DOWN)
+                        buttons |= (uint8_t)ev.code;
+                    else
+                        buttons &= (uint8_t)~ev.code;
+                    cursor_set_buttons(buttons);
+                    shell_dispatch_mouse(x, y, buttons);
+                }
+            }
+            shell_tick();
+            __asm__ volatile("hlt");
+        }
+    }
+
     cpu_halt_forever();
 }
