@@ -232,6 +232,12 @@ extern char __kernel_start[], __kernel_end[];
 
 static struct boot_info boot_info;
 
+/* Limine's framebuffer descriptor lives in bootloader-owned memory. The kernel
+ * replaces CR3 before desktop initialization, so retain a kernel-owned copy of
+ * the descriptor rather than dereferencing that bootloader pointer later. */
+static struct limine_framebuffer boot_framebuffer;
+static bool boot_framebuffer_valid;
+
 static void collect_boot_info(void)
 {
     boot_info.memmap = memmap_req.response;
@@ -313,9 +319,17 @@ __attribute__((noreturn)) void kmain(void)
         cpu_halt_forever();
     }
 
-    /* Framebuffer banner first, so the log below also appears on screen. */
+    /* Preserve the descriptor in kernel-owned storage before VMM replaces
+     * the bootloader page tables. The Limine response/descriptor itself may
+     * reside in bootloader-reclaimable memory not kept mapped by our HHDM. */
     if (fb_req.response && fb_req.response->framebuffer_count > 0 &&
-        fbcon_init(fb_req.response->framebuffers[0])) {
+        fb_req.response->framebuffers && fb_req.response->framebuffers[0]) {
+        boot_framebuffer = *fb_req.response->framebuffers[0];
+        boot_framebuffer_valid = true;
+    }
+
+    /* Framebuffer banner first, so the log below also appears on screen. */
+    if (boot_framebuffer_valid && fbcon_init(&boot_framebuffer)) {
         draw_banner();
         fbcon_console_begin(BANNER_HEIGHT + 12, 1);
     }
@@ -502,8 +516,7 @@ __attribute__((noreturn)) void kmain(void)
     net_report_generate();
 
     /* Milestone 5.0.0 ZERO Desktop Subsystems */
-    if (fb_req.response && fb_req.response->framebuffer_count > 0 &&
-        fb_init(fb_req.response->framebuffers[0])) {
+    if (boot_framebuffer_valid && fb_init(&boot_framebuffer)) {
         fb_dump_info();
         framebuffer_t *fb = fb_get_primary();
         shell_init(fb);
