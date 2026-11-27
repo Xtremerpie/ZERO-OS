@@ -228,16 +228,30 @@ bool e1000_init(void)
         return true;
     }
 
-    /* Hardware present on PCI bus */
-    g_e1000_present = true;
+    /* The E1000 register block is an MMIO BAR. Never dereference an
+     * HHDM pointer until the BAR's physical range has an actual page-table
+     * mapping. PCI BAR discovery alone does not map device memory. */
+    if (pdev->bar_is_io[0] || pdev->bar_size[0] < (REG_RAH + sizeof(uint32_t))) {
+        KLOG_WARN("e1000", "unsupported BAR0 type/size; skipping physical NIC");
+        return false;
+    }
 
-    /* Enable bus mastering and memory space */
+    uint64_t bar0_phys = (uint64_t)(pdev->bar[0] & ~0xFu);
+    if (bar0_phys == 0 ||
+        vmm_ensure_hhdm_mapping(bar0_phys, pdev->bar_size[0]) != VMM_OK) {
+        KLOG_WARN("e1000", "BAR0 MMIO range 0x%llX (size 0x%X) could not be mapped; skipping physical NIC",
+                  (unsigned long long)bar0_phys, pdev->bar_size[0]);
+        return false;
+    }
+
+    /* Enable bus mastering and memory space only after the MMIO range is
+     * mapped, so no register access can fault on an absent HHDM mapping. */
     uint16_t cmd = pci_read16(pdev->bus, pdev->slot, pdev->func, PCI_REG_COMMAND);
     cmd |= (PCI_COMMAND_BUS_MASTER | PCI_COMMAND_MEMORY);
     pci_write16(pdev->bus, pdev->slot, pdev->func, PCI_REG_COMMAND, cmd);
 
-    uint64_t bar0_phys = pdev->bar[0] & ~0xFull;
     g_mmio_base = (uintptr_t)vmm_phys_to_virt(bar0_phys);
+    g_e1000_present = true;
 
     /* Read MAC address */
     uint32_t ral = e1000_read32(REG_RAL);
