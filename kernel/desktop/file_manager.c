@@ -1,6 +1,7 @@
 /* ZERO KERNEL - ZERO File Manager Subsystem Implementation (Milestone 5.0.0 ZERO Desktop).
  */
 #include "desktop/file_manager.h"
+#include "desktop/compositor.h"
 #include "desktop/editor.h"
 #include "desktop/viewer.h"
 #include "desktop/archiver.h"
@@ -12,6 +13,7 @@
 #include "graphics/font.h"
 #include "graphics/color.h"
 #include "zero/string.h"
+#include <stdio.h>
 
 static window_t   *s_fm_win = NULL;
 static char        s_current_path[VFS_MAX_PATH] = "/";
@@ -307,7 +309,7 @@ static void fm_paint(window_t *win, framebuffer_t *fb)
         if (e->is_dir) {
             strcpy(size_str, "<DIR>");
         } else {
-            strcpy(size_str, "128 B");
+            snprintf(size_str, sizeof(size_str), "%lu B", (unsigned long)e->size);
         }
         font_draw_string(fb, list_x + list_w - 70, row_y + 2, size_str, 1, COLOR_ZERO_MUTED);
 
@@ -485,6 +487,7 @@ static void fm_mouse(window_t *win, int32_t lx, int32_t ly, uint8_t buttons)
             }
         }
     }
+    compositor_mark_dirty();
 }
 
 static void fm_close(window_t *win)

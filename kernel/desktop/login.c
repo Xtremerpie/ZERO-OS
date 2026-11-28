@@ -6,6 +6,7 @@
 #include "graphics/color.h"
 #include "graphics/cursor.h"
 #include "zero/string.h"
+#include "zero/version.h"
 
 static char    s_username[32] = "zero";
 static char    s_password[32] = "";
@@ -14,10 +15,12 @@ static size_t  s_pw_len = 0;
 static int32_t s_active_field = 1; /* 0 = username, 1 = password */
 static bool    s_authenticated = false;
 static bool    s_last_btn_state = false;
+static bool    s_dirty = true;
+static framebuffer_t *s_login_fb = NULL;
 
 void login_init(framebuffer_t *fb)
 {
-    (void)fb;
+    s_login_fb = fb;
     memcpy(s_username, "zero", 5);
     s_user_len = 4;
     s_password[0] = '\0';
@@ -25,6 +28,12 @@ void login_init(framebuffer_t *fb)
     s_active_field = 1;
     s_authenticated = false;
     s_last_btn_state = false;
+    s_dirty = true;
+}
+
+void login_mark_dirty(void)
+{
+    s_dirty = true;
 }
 
 bool login_is_authenticated(void)
@@ -38,6 +47,7 @@ void login_lock(void)
     s_password[0] = '\0';
     s_pw_len = 0;
     s_active_field = 1;
+    s_dirty = true;
 }
 
 const char *login_get_username(void)
@@ -47,7 +57,9 @@ const char *login_get_username(void)
 
 void login_render(framebuffer_t *fb)
 {
-    if (!fb) return;
+    if (!fb || !s_dirty) return;
+    s_dirty = false;
+    s_login_fb = fb;
 
     /* Fill background */
     draw_fill_rect(fb, 0, 0, fb->width, fb->height, COLOR_ZERO_BLACK);
@@ -80,7 +92,7 @@ void login_render(framebuffer_t *fb)
     int32_t tw = font_get_string_width(title, 2);
     font_draw_string(fb, cx + (card_w - tw) / 2, cy + 12, title, 2, COLOR_ZERO_GOLD);
 
-    const char *subtitle = "SECURE LOGIN - VERSION 5.0.0";
+    const char *subtitle = "ZERO OS " ZERO_VERSION_STRING " - " ZERO_CODENAME_UPPER;
     int32_t sw = font_get_string_width(subtitle, 1);
     font_draw_string(fb, cx + (card_w - sw) / 2, cy + 56, subtitle, 1, COLOR_ZERO_MUTED);
 
@@ -140,22 +152,48 @@ void login_render(framebuffer_t *fb)
 
 void login_handle_mouse(int32_t x, int32_t y, uint8_t buttons)
 {
-    (void)x;
-    (void)y;
+    s_dirty = true;
+
     bool btn_down = (buttons & 1u) && !s_last_btn_state;
     s_last_btn_state = (buttons & 1u) != 0;
 
     if (!btn_down) return;
 
-    /* Check Sign In button click (card_w = 400, card_h = 320) */
-    /* Assuming typical screen resolution or centered coords */
-    /* Authenticate on button click */
-    s_authenticated = true;
+    int32_t fb_w = s_login_fb ? (int32_t)s_login_fb->width : 1280;
+    int32_t fb_h = s_login_fb ? (int32_t)s_login_fb->height : 800;
+    int32_t card_w = 400;
+    int32_t card_h = 320;
+    int32_t cx = (fb_w - card_w) / 2;
+    int32_t cy = (fb_h - card_h) / 2;
+
+    int32_t field_x = cx + 40;
+    int32_t field_w = card_w - 80;
+    int32_t user_box_y = cy + 100;
+    int32_t pass_box_y = cy + 156;
+
+    if (x >= field_x && x < field_x + field_w && y >= user_box_y && y < user_box_y + 28) {
+        s_active_field = 0;
+        return;
+    }
+    if (x >= field_x && x < field_x + field_w && y >= pass_box_y && y < pass_box_y + 28) {
+        s_active_field = 1;
+        return;
+    }
+
+    int32_t btn_w = 160;
+    int32_t btn_h = 32;
+    int32_t btn_x = cx + (card_w - btn_w) / 2;
+    int32_t btn_y = cy + 200;
+
+    if (x >= btn_x && x < btn_x + btn_w && y >= btn_y && y < btn_y + btn_h) {
+        s_authenticated = true;
+    }
 }
 
 void login_handle_key(uint8_t key, uint8_t scancode)
 {
     (void)scancode;
+    s_dirty = true;
 
     /* Enter key triggers authentication */
     if (key == '\n' || key == '\r' || key == 0x0A || key == 0x0D) {

@@ -36,6 +36,8 @@ void compositor_mark_damage(int32_t x, int32_t y, int32_t w, int32_t h);
 void compositor_toggle_launcher(void);
 void compositor_set_launcher(bool open);
 bool compositor_is_launcher_open(void);
+void compositor_set_launcher_selection(int32_t index);
+int32_t compositor_get_launcher_selection(void);
 
 /* Composite complete scene to backbuffer and flip to display */
 void compositor_render(void);

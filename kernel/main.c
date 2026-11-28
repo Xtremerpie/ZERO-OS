@@ -414,6 +414,14 @@ __attribute__((noreturn)) void kmain(void)
     ps2_mouse_init();
     kprintf("[PASS] ps2: PS/2 mouse controller and IRQ 12 active\n");
 
+    if (ioapic_init()) {
+        ioapic_route_irq(1, 0x21);
+        ioapic_route_irq(12, 0x2C);
+    } else {
+        KLOG_WARN("ioapic", "I/O APIC unavailable: PS/2 IRQs may not be delivered");
+    }
+    ps2_flush_output();
+
     block_init();
     kprintf("[PASS] block: block device management subsystem initialized\n");
 
@@ -597,17 +605,19 @@ __attribute__((noreturn)) void kmain(void)
     test_device_exit(true); /* returns unless zero.test_exit=1 */
 
     /* Enter the interactive graphical session instead of halting at the
-     * diagnostic console. Hardware IRQ handlers enqueue input events; this
-     * loop dispatches them to the desktop shell and redraws the UI. */
-    if (fb_is_available()) {
+     * diagnostic console unless zero.console=1 was explicitly requested. */
+    if (!selftest_console_only() && fb_is_available()) {
+        /* Re-initialize shell after desktop_run_selftests() so WM bounds,
+         * cursor position, and mouse button state match the live framebuffer. */
+        shell_init(fb_get_primary());
+        ps2_flush_output();
         KLOG_INFO("desktop", "entering interactive ZERO Desktop event loop");
+        sti();
         for (;;) {
             input_event_t ev;
             while (input_poll_event(&ev)) {
                 if (ev.type == INPUT_KEY_DOWN) {
-                    uint8_t key = (uint8_t)input_keycode_to_ascii(ev.code, ev.modifiers);
-                    uint8_t scancode = (ev.code == KEY_F6) ? 0x40u : (uint8_t)ev.code;
-                    shell_dispatch_key(key, scancode);
+                    shell_dispatch_keycode(ev.code, ev.modifiers);
                 } else if (ev.type == INPUT_MOUSE_MOVE) {
                     cursor_move_delta(ev.dx, ev.dy);
                     int32_t x, y;
@@ -628,7 +638,7 @@ __attribute__((noreturn)) void kmain(void)
                 }
             }
             shell_tick();
-            __asm__ volatile("hlt");
+            __asm__ volatile("sti; hlt");
         }
     }
 

@@ -18,6 +18,7 @@
 
 static char test_name[16];
 static bool test_exit_enabled;
+static bool console_only_enabled;
 
 /* Finds `key` in a space-separated command line; copies its value into out. */
 static bool cmdline_get(const char *cmdline, const char *key, char *out, size_t out_size)
@@ -45,12 +46,20 @@ void selftest_configure(const char *cmdline)
     char val[4];
     test_name[0] = '\0';
     test_exit_enabled = false;
+    console_only_enabled = false;
     if (!cmdline)
         return;
     cmdline_get(cmdline, "zero.selftest", test_name, sizeof test_name);
     /* Exactly "1": "10", "1x" etc. must not enable the QEMU exit device. */
     test_exit_enabled = cmdline_get(cmdline, "zero.test_exit", val, sizeof val) &&
                         val[0] == '1' && val[1] == '\0';
+    console_only_enabled = cmdline_get(cmdline, "zero.console", val, sizeof val) &&
+                           val[0] == '1' && val[1] == '\0';
+}
+
+bool selftest_console_only(void)
+{
+    return console_only_enabled;
 }
 
 void test_device_exit(bool ok)
@@ -58,7 +67,7 @@ void test_device_exit(bool ok)
     if (!test_exit_enabled)
         return;
     outb(ISA_DEBUG_EXIT_PORT, ok ? 0x10 : 0x11);
-    /* If the device is absent the write is ignored; the caller then halts normally. */
+    cpu_halt_forever();
 }
 
 bool selftest_requested(const char *name)

@@ -11,7 +11,12 @@
 #include "desktop/control_center.h"
 #include "desktop/sysmon.h"
 #include "desktop/about.h"
+#include "drivers/input.h"
 #include "graphics/cursor.h"
+#include "storage/bcache.h"
+#include "zero/cpu.h"
+#include "zero/log.h"
+#include "zero/selftest.h"
 #include "zero/string.h"
 
 static framebuffer_t *s_fb = NULL;
@@ -72,6 +77,43 @@ void shell_launch_app(app_id_t app_id)
     compositor_mark_dirty();
 }
 
+static void enter_desktop_session(void)
+{
+    s_state = SHELL_STATE_DESKTOP;
+    compositor_set_launcher(false);
+    /* Launch Control Center first and Terminal second so Terminal has focus. */
+    control_center_launch();
+    terminal_launch();
+    compositor_mark_dirty();
+}
+
+static void activate_launcher_item(uint32_t idx)
+{
+    uint32_t count = 0;
+    const app_desc_t *apps = app_get_all(&count);
+    compositor_set_launcher(false);
+
+    if (idx < count) {
+        shell_launch_app(apps[idx].id);
+    } else if (idx == count) {
+        login_lock();
+        s_state = SHELL_STATE_LOGIN;
+    } else if (idx == count + 1u) {
+        shell_shutdown();
+    }
+}
+
+__attribute__((noreturn)) void shell_shutdown(void)
+{
+    KLOG_INFO("power", "ZERO-OS shutting down cleanly...");
+    bcache_flush_all();
+    /* QEMU Q35 / Bochs / PIIX4 ACPI poweroff ports */
+    outw(0x604, 0x2000);
+    outw(0xB004, 0x2000);
+    test_device_exit(true);
+    cpu_halt_forever();
+}
+
 void shell_dispatch_mouse(int32_t screen_x, int32_t screen_y, uint8_t buttons)
 {
     cursor_set_pos(screen_x, screen_y);
@@ -83,11 +125,7 @@ void shell_dispatch_mouse(int32_t screen_x, int32_t screen_y, uint8_t buttons)
     if (s_state == SHELL_STATE_LOGIN) {
         login_handle_mouse(screen_x, screen_y, buttons);
         if (login_is_authenticated()) {
-            s_state = SHELL_STATE_DESKTOP;
-            compositor_mark_dirty();
-            /* Default welcome environment: launch terminal and control center */
-            terminal_launch();
-            control_center_launch();
+            enter_desktop_session();
         }
         return;
     }
@@ -105,6 +143,11 @@ void shell_dispatch_mouse(int32_t screen_x, int32_t screen_y, uint8_t buttons)
                 return;
             }
 
+            /* Shutdown [OFF] Button: [width - 48 .. width - 6] */
+            if (screen_x >= (int32_t)s_fb->width - 48 && screen_x < (int32_t)s_fb->width - 6) {
+                shell_shutdown();
+            }
+
             /* Window Tabs: starting at x = 90 */
             int32_t count = 0;
             window_t **wins = wm_get_windows(&count);
@@ -113,6 +156,7 @@ void shell_dispatch_mouse(int32_t screen_x, int32_t screen_y, uint8_t buttons)
 
             for (int32_t i = 0; i < count; i++) {
                 if (!wins[i]) continue;
+                if (tab_x + tab_w > (int32_t)s_fb->width - 224) break;
                 if (screen_x >= tab_x && screen_x < tab_x + tab_w) {
                     if (wins[i]->flags & WINDOW_FLAG_MINIMIZED) {
                         wm_restore(wins[i]);
@@ -127,26 +171,29 @@ void shell_dispatch_mouse(int32_t screen_x, int32_t screen_y, uint8_t buttons)
                 tab_x += tab_w + 4;
             }
 
+            compositor_mark_dirty();
             return;
         }
 
         /* 2. Check Application Launcher Menu Interaction */
         if (compositor_is_launcher_open()) {
             uint32_t count = 0;
-            const app_desc_t *apps = app_get_all(&count);
+            (void)app_get_all(&count);
+            uint32_t total_items = count + 2u;
             int32_t row_h = 28;
             int32_t mw = 220;
-            int32_t mh = 36 + (int32_t)count * row_h + 4;
+            int32_t mh = 36 + (int32_t)total_items * row_h + 4;
             int32_t mx = 6;
             int32_t my = ty - mh - 4;
             if (my < 10) my = 10;
 
             if (screen_x >= mx && screen_x < mx + mw && screen_y >= my && screen_y < my + mh) {
                 int32_t item_start_y = my + 34;
-                if (screen_y >= item_start_y && screen_y < item_start_y + (int32_t)count * row_h) {
+                if (screen_y >= item_start_y && screen_y < item_start_y + (int32_t)total_items * row_h) {
                     uint32_t idx = (uint32_t)((screen_y - item_start_y) / row_h);
-                    if (idx < count) {
-                        shell_launch_app(apps[idx].id);
+                    if (idx < total_items) {
+                        activate_launcher_item(idx);
+                        return;
                     }
                 }
                 compositor_set_launcher(false);
@@ -160,6 +207,7 @@ void shell_dispatch_mouse(int32_t screen_x, int32_t screen_y, uint8_t buttons)
 
     /* 3. Forward mouse to Window Manager */
     wm_handle_mouse(screen_x, screen_y, buttons);
+    compositor_mark_dirty();
 }
 
 void shell_dispatch_key(uint8_t key, uint8_t scancode)
@@ -167,10 +215,7 @@ void shell_dispatch_key(uint8_t key, uint8_t scancode)
     if (s_state == SHELL_STATE_LOGIN) {
         login_handle_key(key, scancode);
         if (login_is_authenticated()) {
-            s_state = SHELL_STATE_DESKTOP;
-            compositor_mark_dirty();
-            terminal_launch();
-            control_center_launch();
+            enter_desktop_session();
         }
         return;
     }
@@ -181,7 +226,7 @@ void shell_dispatch_key(uint8_t key, uint8_t scancode)
         return;
     }
 
-    /* Global shortcut: Tab with modifier or F6 cycles windows */
+    /* Global shortcut: F6 cycles windows */
     if (scancode == 0x40 /* F6 */) {
         shell_cycle_window();
         return;
@@ -189,6 +234,64 @@ void shell_dispatch_key(uint8_t key, uint8_t scancode)
 
     /* Forward key event to focused window */
     wm_handle_key(key, scancode);
+    compositor_mark_dirty();
+}
+
+void shell_dispatch_keycode(uint32_t keycode, uint32_t modifiers)
+{
+    uint8_t key = (uint8_t)input_keycode_to_ascii(keycode, modifiers);
+
+    if (s_state == SHELL_STATE_LOGIN) {
+        login_handle_key(key, (uint8_t)keycode);
+        if (login_is_authenticated()) {
+            enter_desktop_session();
+        }
+        return;
+    }
+
+    if (keycode == KEY_LWIN || keycode == KEY_RWIN || keycode == KEY_F1 || keycode == KEY_ESCAPE) {
+        compositor_toggle_launcher();
+        return;
+    }
+
+    if (keycode == KEY_F6 || (keycode == KEY_TAB && (modifiers & MODIFIER_ALT))) {
+        shell_cycle_window();
+        return;
+    }
+
+    if (keycode == KEY_F4 && (modifiers & MODIFIER_ALT)) {
+        window_t *focused = wm_get_focused();
+        if (focused) {
+            wm_close(focused);
+            compositor_mark_dirty();
+        }
+        return;
+    }
+
+    if (compositor_is_launcher_open()) {
+        uint32_t count = 0;
+        (void)app_get_all(&count);
+        int32_t total = (int32_t)(count + 2u);
+        int32_t sel = compositor_get_launcher_selection();
+
+        if (keycode == KEY_UP) {
+            sel = (sel - 1 + total) % total;
+            compositor_set_launcher_selection(sel);
+            return;
+        }
+        if (keycode == KEY_DOWN || keycode == KEY_TAB) {
+            sel = (sel + 1) % total;
+            compositor_set_launcher_selection(sel);
+            return;
+        }
+        if (keycode == KEY_ENTER && sel >= 0 && sel < total) {
+            activate_launcher_item((uint32_t)sel);
+            return;
+        }
+    }
+
+    wm_handle_key(key, (uint8_t)keycode);
+    compositor_mark_dirty();
 }
 
 void shell_tick(void)

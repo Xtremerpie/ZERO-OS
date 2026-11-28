@@ -135,34 +135,78 @@ class FAT32Builder:
             cur_cluster = next_cluster
         return first_cluster, len(data)
 
-    def add_dirent(self, dir_cluster: int, name83: bytes, attr: int, first_cluster: int, size: int):
-        d = self.clusters[dir_cluster]
-        # Find free 32-byte slot
-        for offset in range(0, len(d), 32):
-            if d[offset] == 0x00 or d[offset] == 0xE5:
-                # Format 32-byte directory entry
-                d[offset:offset+11] = name83
-                d[offset+11] = attr
-                # Time/date placeholders
-                struct.pack_into("<H", d, offset+20, (first_cluster >> 16) & 0xFFFF)
-                struct.pack_into("<H", d, offset+26, first_cluster & 0xFFFF)
-                struct.pack_into("<I", d, offset+28, size)
-                return
-        # If full, extend directory by one cluster
-        new_c = self.alloc_cluster()
-        self.fat_entries[dir_cluster] = new_c
-        # Add to new cluster
-        d = self.clusters[new_c]
-        d[0:11] = name83
-        d[11] = attr
-        struct.pack_into("<H", d, 20, (first_cluster >> 16) & 0xFFFF)
-        struct.pack_into("<H", d, 26, first_cluster & 0xFFFF)
-        struct.pack_into("<I", d, 28, size)
+    def _dir_chain(self, dir_cluster: int):
+        chain = [dir_cluster]
+        c = dir_cluster
+        while self.fat_entries[c] < 0x0FFFFFF8:
+            c = self.fat_entries[c]
+            chain.append(c)
+        return chain
 
-    def make_dir(self, parent_cluster: int, name83: bytes) -> int:
+    @staticmethod
+    def _lfn_checksum(name83: bytes) -> int:
+        s = 0
+        for b in name83:
+            s = (((s & 1) << 7) + (s >> 1) + b) & 0xFF
+        return s
+
+    def add_dirent(self, dir_cluster: int, name83: bytes, attr: int, first_cluster: int, size: int, long_name: str = None):
+        entries = []
+        if long_name:
+            name_u = long_name.encode("utf-16le") + b"\x00\x00"
+            rem = len(name_u) % 26
+            if rem:
+                name_u += b"\xFF" * (26 - rem)
+            n_lfn = len(name_u) // 26
+            csum = self._lfn_checksum(name83)
+            for seq in range(n_lfn, 0, -1):
+                chunk = name_u[(seq - 1) * 26 : seq * 26]
+                ent = bytearray(32)
+                ent[0] = seq | (0x40 if seq == n_lfn else 0)
+                ent[1:11] = chunk[0:10]
+                ent[11] = 0x0F
+                ent[13] = csum
+                ent[14:26] = chunk[10:22]
+                ent[28:32] = chunk[22:26]
+                entries.append(bytes(ent))
+
+        s_ent = bytearray(32)
+        s_ent[0:11] = name83
+        s_ent[11] = attr
+        struct.pack_into("<H", s_ent, 20, (first_cluster >> 16) & 0xFFFF)
+        struct.pack_into("<H", s_ent, 26, first_cluster & 0xFFFF)
+        struct.pack_into("<I", s_ent, 28, size)
+        entries.append(bytes(s_ent))
+
+        chain = self._dir_chain(dir_cluster)
+        free_slot = None
+        for ci, c in enumerate(chain):
+            d = self.clusters[c]
+            for off in range(0, 512, 32):
+                if d[off] == 0x00:
+                    free_slot = ci * 16 + (off // 32)
+                    break
+            if free_slot is not None:
+                break
+        if free_slot is None:
+            free_slot = len(chain) * 16
+
+        need_slots = free_slot + len(entries)
+        while len(chain) * 16 < need_slots:
+            new_c = self.alloc_cluster()
+            self.fat_entries[chain[-1]] = new_c
+            chain.append(new_c)
+
+        for k, ent in enumerate(entries):
+            slot = free_slot + k
+            c = chain[slot // 16]
+            off = (slot % 16) * 32
+            self.clusters[c][off:off + 32] = ent
+
+    def make_dir(self, parent_cluster: int, name83: bytes, long_name: str = None) -> int:
         dir_c = self.alloc_cluster()
         # Add entry in parent
-        self.add_dirent(parent_cluster, name83, 0x10, dir_c, 0)
+        self.add_dirent(parent_cluster, name83, 0x10, dir_c, 0, long_name=long_name)
         # Add . and .. in new dir
         d = self.clusters[dir_c]
         # "."
@@ -276,23 +320,23 @@ quiet: yes
     fat32 = FAT32Builder(PART_SECTORS)
     
     # Create directories: /EFI, /EFI/BOOT, /boot
-    efi_dir = fat32.make_dir(2, b"EFI        ")
-    boot_dir_efi = fat32.make_dir(efi_dir, b"BOOT       ")
-    boot_dir_root = fat32.make_dir(2, b"BOOT       ")
+    efi_dir = fat32.make_dir(2, b"EFI        ", long_name="EFI")
+    boot_dir_efi = fat32.make_dir(efi_dir, b"BOOT       ", long_name="BOOT")
+    boot_dir_root = fat32.make_dir(2, b"BOOT       ", long_name="boot")
 
     # Write files:
     # 1. /EFI/BOOT/BOOTX64.EFI
     c_boot, s_boot = fat32.write_file(bootx64_data)
-    fat32.add_dirent(boot_dir_efi, b"BOOTX64 EFI", 0x20, c_boot, s_boot)
+    fat32.add_dirent(boot_dir_efi, b"BOOTX64 EFI", 0x20, c_boot, s_boot, long_name="BOOTX64.EFI")
 
     # 2. /limine.conf
     c_conf, s_conf = fat32.write_file(conf_content)
-    fat32.add_dirent(2, b"LIMINECONF ", 0x20, c_conf, s_conf)
+    fat32.add_dirent(2, b"LIMINE~1CON", 0x20, c_conf, s_conf, long_name="limine.conf")
 
     # 3. /boot/zero-kernel.elf (if kernel present)
     if kernel_data:
         c_k, s_k = fat32.write_file(kernel_data)
-        fat32.add_dirent(boot_dir_root, b"ZERO-KE ELF", 0x20, c_k, s_k)
+        fat32.add_dirent(boot_dir_root, b"ZERO-K~1ELF", 0x20, c_k, s_k, long_name="zero-kernel.elf")
 
     partition_bytes = fat32.to_bytes()
 

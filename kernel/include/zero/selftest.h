@@ -24,5 +24,8 @@ bool selftest_requested(const char *name);
 /* Run the requested selftest, if any. Call after PMM init. */
 void selftest_run(const struct boot_info *bi);
 
+/* True if zero.console=1 was given (stay on diagnostic console instead of desktop loop). */
+bool selftest_console_only(void);
+
 /* If zero.test_exit=1, signal QEMU and do not return. Otherwise returns. */
 void test_device_exit(bool ok);

@@ -6,6 +6,7 @@
 #include "graphics/font.h"
 #include "graphics/color.h"
 #include "zero/string.h"
+#include "zero/version.h"
 
 static window_t *s_about_win = NULL;
 
@@ -48,7 +49,7 @@ static void about_paint(window_t *win, framebuffer_t *fb)
     draw_line(fb, ox + 20, oy + 76,
               ox + cw - 20, oy + 76, COLOR_ZERO_BORDER);
 
-    const char *ver = "Official Milestone: 6.0.0 ZERO Ecosystem";
+    const char *ver = "Version: " ZERO_VERSION_STRING " \"" ZERO_CODENAME "\" (build " ZERO_BUILD_ID ")";
     int32_t vw = font_get_string_width(ver, 1);
 
     font_draw_string(fb, cx - vw / 2, oy + 86,

@@ -1,10 +1,15 @@
 /* ZERO KERNEL - ZERO Control Center Implementation (Milestone 5.0.0 ZERO Desktop).
  */
 #include "desktop/control_center.h"
+#include "desktop/compositor.h"
 #include "graphics/draw.h"
 #include "graphics/font.h"
 #include "graphics/color.h"
+#include "hardware/acpi.h"
+#include "memory/pmm.h"
 #include "zero/string.h"
+#include "zero/version.h"
+#include <stdio.h>
 
 static window_t *s_cc_win = NULL;
 static cc_tab_t  s_active_tab = CC_TAB_DISPLAY;
@@ -81,64 +86,82 @@ static void cc_paint(window_t *win, framebuffer_t *fb)
     int32_t row_h = 24;
 
     switch (s_active_tab) {
-    case CC_TAB_DISPLAY:
-        font_draw_string(fb, mx, row_y, "Resolution:      1024 x 768 @ 32 bpp (RGB)", 1, COLOR_ZERO_WHITE);
+    case CC_TAB_DISPLAY: {
+        char disp_line[64];
+        snprintf(disp_line, sizeof(disp_line), "Resolution:      %u x %u @ %u bpp (RGB)",
+                 fb->width, fb->height, fb->bpp);
+        font_draw_string(fb, mx, row_y, disp_line, 1, COLOR_ZERO_WHITE);
         row_y += row_h;
-        font_draw_string(fb, mx, row_y, "Frame Engine:    Double-Buffered RAM Surface (Zero Tearing)", 1, COLOR_ZERO_WHITE);
+        font_draw_string(fb, mx, row_y,
+                         (fb->back_buffer != fb->front_buffer)
+                             ? "Frame Engine:    Double-Buffered RAM Surface"
+                             : "Frame Engine:    Direct Hardware VRAM",
+                         1, COLOR_ZERO_WHITE);
         row_y += row_h;
         font_draw_string(fb, mx, row_y, "Damage Tracking: Active (Bounding Box Dirty Blits)", 1, COLOR_ZERO_WHITE);
         row_y += row_h;
-        font_draw_string(fb, mx, row_y, "Hardware VRAM:   Linear Framebuffer via Limine Bootloader", 1, COLOR_ZERO_WHITE);
+        font_draw_string(fb, mx, row_y, "Hardware VRAM:   Linear Framebuffer (Limine GOP)", 1, COLOR_ZERO_WHITE);
         row_y += row_h;
-        font_draw_string(fb, mx, row_y, "Clipping Engine: Strict Window & Surface Boundary Enforcement", 1, COLOR_ZERO_WHITE);
+        font_draw_string(fb, mx, row_y, "GPU Accel:       Software Blitter (No HW 2D/3D)", 1, COLOR_ZERO_MUTED);
         break;
+    }
 
     case CC_TAB_INPUT:
-        font_draw_string(fb, mx, row_y, "Mouse Driver:    PS/2 3-Byte Packet Stream @ 100 Hz", 1, COLOR_ZERO_WHITE);
+        font_draw_string(fb, mx, row_y, "Mouse Driver:    PS/2 IRQ 12 (3-Byte Packet Stream)", 1, COLOR_ZERO_WHITE);
         row_y += row_h;
         font_draw_string(fb, mx, row_y, "Delta Precision: 9-bit Signed Two's Complement X/Y", 1, COLOR_ZERO_WHITE);
         row_y += row_h;
-        font_draw_string(fb, mx, row_y, "Keyboard Driver: PS/2 Set 2 Dual Scancode Decoder", 1, COLOR_ZERO_WHITE);
+        font_draw_string(fb, mx, row_y, "Keyboard Driver: PS/2 IRQ 1 (Scancode Set 1)", 1, COLOR_ZERO_WHITE);
         row_y += row_h;
-        font_draw_string(fb, mx, row_y, "Pointer Overlay: 16x16 Vector Gold Arrow (Flicker-Free)", 1, COLOR_ZERO_WHITE);
+        font_draw_string(fb, mx, row_y, "Pointer Overlay: 16x16 Vector Gold Arrow", 1, COLOR_ZERO_WHITE);
         row_y += row_h;
-        font_draw_string(fb, mx, row_y, "Global Hotkeys:  Alt+Tab (Cycle), Alt+F4 (Close), Win (Menu)", 1, COLOR_ZERO_WHITE);
+        font_draw_string(fb, mx, row_y, "Global Hotkeys:  F1/Esc/Win (Menu), Alt+Tab/F6, Alt+F4", 1, COLOR_ZERO_WHITE);
         break;
 
-    case CC_TAB_SYSTEM:
-        font_draw_string(fb, mx, row_y, "Architecture:    x86_64 Higher-Half Ring 0 Microkernel", 1, COLOR_ZERO_WHITE);
+    case CC_TAB_SYSTEM: {
+        struct pmm_stats ps;
+        pmm_get_stats(&ps);
+        const struct acpi_madt_info *madt = acpi_get_madt_info();
+        uint32_t cpus = (madt && madt->cpu_count > 0) ? madt->cpu_count : 1;
+        char sys_line[64];
+        font_draw_string(fb, mx, row_y, "Architecture:    x86_64 Higher-Half Ring 0 Kernel", 1, COLOR_ZERO_WHITE);
         row_y += row_h;
-        font_draw_string(fb, mx, row_y, "Processor:       Intel Celeron J3355 (2 Cores / 2 Threads)", 1, COLOR_ZERO_WHITE);
+        snprintf(sys_line, sizeof(sys_line), "MADT CPUs:       %u Logical Processor(s)", cpus);
+        font_draw_string(fb, mx, row_y, sys_line, 1, COLOR_ZERO_WHITE);
         row_y += row_h;
-        font_draw_string(fb, mx, row_y, "Memory Model:    PMM + 4-Level VMM with W^X Page Protection", 1, COLOR_ZERO_WHITE);
+        font_draw_string(fb, mx, row_y, "Memory Model:    PMM + 4-Level VMM with W^X Protection", 1, COLOR_ZERO_WHITE);
         row_y += row_h;
-        font_draw_string(fb, mx, row_y, "Installed RAM:   4096 MB System Memory", 1, COLOR_ZERO_WHITE);
+        snprintf(sys_line, sizeof(sys_line), "Usable RAM:      %lu MiB (%lu MiB Free)",
+                 (unsigned long)(ps.usable_memory / (1024u * 1024u)),
+                 (unsigned long)(ps.free_memory / (1024u * 1024u)));
+        font_draw_string(fb, mx, row_y, sys_line, 1, COLOR_ZERO_WHITE);
         row_y += row_h;
-        font_draw_string(fb, mx, row_y, "Operating OS:    ZERO OS 6.0.0 ZERO Ecosystem", 1, COLOR_ZERO_GOLD);
+        font_draw_string(fb, mx, row_y, "Operating OS:    ZERO OS " ZERO_VERSION_STRING " " ZERO_CODENAME, 1, COLOR_ZERO_GOLD);
         break;
+    }
 
     case CC_TAB_NETWORK:
-        font_draw_string(fb, mx, row_y, "Controller:      Intel 82540EM Gigabit Ethernet (e1000)", 1, COLOR_ZERO_WHITE);
+        font_draw_string(fb, mx, row_y, "Controller:      Intel 82540EM (e1000) Local Driver", 1, COLOR_ZERO_WHITE);
         row_y += row_h;
         font_draw_string(fb, mx, row_y, "MAC Address:     52:54:00:12:34:56", 1, COLOR_ZERO_WHITE);
         row_y += row_h;
-        font_draw_string(fb, mx, row_y, "IPv4 Address:    10.0.2.15 (Subnet: 255.255.255.0)", 1, COLOR_ZERO_WHITE);
+        font_draw_string(fb, mx, row_y, "IPv4 Config:     10.0.2.15 (Subnet: 255.255.255.0)", 1, COLOR_ZERO_WHITE);
         row_y += row_h;
         font_draw_string(fb, mx, row_y, "Gateway / DNS:   10.0.2.2 / 10.0.2.3", 1, COLOR_ZERO_WHITE);
         row_y += row_h;
-        font_draw_string(fb, mx, row_y, "Stack Status:    TCP/IP, UDP, ICMP, DHCP, BSD Sockets Active", 1, COLOR_ZERO_SUCCESS);
+        font_draw_string(fb, mx, row_y, "Status:          Stack Ready (External Internet Offline)", 1, COLOR_ZERO_WARNING);
         break;
 
     case CC_TAB_STORAGE:
-        font_draw_string(fb, mx, row_y, "Block Controller: VirtIO Block Device / System RAM Disk", 1, COLOR_ZERO_WHITE);
+        font_draw_string(fb, mx, row_y, "Block Controller: In-Memory RAM Disk (ramdisk0)", 1, COLOR_ZERO_WHITE);
         row_y += row_h;
-        font_draw_string(fb, mx, row_y, "Partition Table: GPT (GUID Partition Table) & Legacy MBR", 1, COLOR_ZERO_WHITE);
+        font_draw_string(fb, mx, row_y, "Partition Table: GPT / MBR Parsers Active", 1, COLOR_ZERO_WHITE);
         row_y += row_h;
         font_draw_string(fb, mx, row_y, "Native FS:       ZEROFS v1 (4096B block cache, 128B inodes)", 1, COLOR_ZERO_WHITE);
         row_y += row_h;
         font_draw_string(fb, mx, row_y, "Root Mount [/]:  RAMFS In-Memory Virtual Filesystem", 1, COLOR_ZERO_WHITE);
         row_y += row_h;
-        font_draw_string(fb, mx, row_y, "Data Mount [/data]: ZEROFS Persistent Storage Partition", 1, COLOR_ZERO_GOLD);
+        font_draw_string(fb, mx, row_y, "Data Mount [/data]: ZEROFS on ramdisk0 (Volatile)", 1, COLOR_ZERO_GOLD);
         break;
 
     case CC_TAB_THEMES:
@@ -180,6 +203,7 @@ static void cc_mouse(window_t *win, int32_t lx, int32_t ly, uint8_t buttons)
         int32_t clicked = (ly - 12) / 38;
         if (clicked >= 0 && clicked < (int32_t)CC_TAB_COUNT) {
             s_active_tab = (cc_tab_t)clicked;
+            compositor_mark_dirty();
         }
     }
 }
@@ -198,7 +222,7 @@ window_t *control_center_launch(void)
         return s_cc_win;
     }
 
-    s_cc_win = wm_create_window("ZERO Control Center", 80, 60, 560, 360, WINDOW_FLAG_RESIZABLE);
+    s_cc_win = wm_create_window("ZERO Control Center", 640, 60, 580, 360, WINDOW_FLAG_RESIZABLE);
     if (s_cc_win) {
         s_cc_win->on_paint = cc_paint;
         s_cc_win->on_mouse = cc_mouse;

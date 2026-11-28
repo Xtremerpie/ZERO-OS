@@ -9,3 +9,6 @@ int ps2_kbd_init(void);
 
 /* Process a raw scancode directly (useful for tests and hardware IRQ) */
 void ps2_kbd_handle_scancode(uint8_t scancode);
+
+/* Drain any pending bytes from the i8042 PS/2 controller output buffer. */
+void ps2_flush_output(void);

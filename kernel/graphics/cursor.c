@@ -36,7 +36,8 @@ static spinlock_t     g_cursor_lock;
 void cursor_init(uint32_t start_x, uint32_t start_y)
 {
     spinlock_init(&g_cursor_lock);
-    spin_lock(&g_cursor_lock);
+    uint64_t flags;
+    spin_lock_irqsave(&g_cursor_lock, &flags);
     memset(&g_cursor, 0, sizeof(g_cursor));
     g_cursor.x = (int32_t)start_x;
     g_cursor.y = (int32_t)start_y;
@@ -44,7 +45,7 @@ void cursor_init(uint32_t start_x, uint32_t start_y)
     g_cursor.prev_y = g_cursor.y;
     g_cursor.visible = true;
     g_cursor.has_saved_bg = false;
-    spin_unlock(&g_cursor_lock);
+    spin_unlock_irqrestore(&g_cursor_lock, flags);
 }
 
 void cursor_set_pos(int32_t x, int32_t y)
@@ -53,7 +54,8 @@ void cursor_set_pos(int32_t x, int32_t y)
     int32_t max_x = fb ? (int32_t)fb->width - 1 : 1920;
     int32_t max_y = fb ? (int32_t)fb->height - 1 : 1080;
 
-    spin_lock(&g_cursor_lock);
+    uint64_t flags;
+    spin_lock_irqsave(&g_cursor_lock, &flags);
     g_cursor.prev_x = g_cursor.x;
     g_cursor.prev_y = g_cursor.y;
 
@@ -64,7 +66,7 @@ void cursor_set_pos(int32_t x, int32_t y)
 
     g_cursor.x = x;
     g_cursor.y = y;
-    spin_unlock(&g_cursor_lock);
+    spin_unlock_irqrestore(&g_cursor_lock, flags);
 }
 
 void cursor_move_delta(int32_t dx, int32_t dy)
@@ -73,7 +75,8 @@ void cursor_move_delta(int32_t dx, int32_t dy)
     int32_t max_x = fb ? (int32_t)fb->width - 1 : 1920;
     int32_t max_y = fb ? (int32_t)fb->height - 1 : 1080;
 
-    spin_lock(&g_cursor_lock);
+    uint64_t flags;
+    spin_lock_irqsave(&g_cursor_lock, &flags);
     g_cursor.prev_x = g_cursor.x;
     g_cursor.prev_y = g_cursor.y;
 
@@ -87,40 +90,44 @@ void cursor_move_delta(int32_t dx, int32_t dy)
 
     g_cursor.x = nx;
     g_cursor.y = ny;
-    spin_unlock(&g_cursor_lock);
+    spin_unlock_irqrestore(&g_cursor_lock, flags);
 }
 
 void cursor_set_buttons(uint8_t buttons)
 {
-    spin_lock(&g_cursor_lock);
+    uint64_t flags;
+    spin_lock_irqsave(&g_cursor_lock, &flags);
     g_cursor.prev_buttons = g_cursor.buttons;
     g_cursor.buttons = buttons;
-    spin_unlock(&g_cursor_lock);
+    spin_unlock_irqrestore(&g_cursor_lock, flags);
 }
 
 void cursor_set_visible(bool visible)
 {
-    spin_lock(&g_cursor_lock);
+    uint64_t flags;
+    spin_lock_irqsave(&g_cursor_lock, &flags);
     g_cursor.visible = visible;
-    spin_unlock(&g_cursor_lock);
+    spin_unlock_irqrestore(&g_cursor_lock, flags);
 }
 
 void cursor_get_state(int32_t *out_x, int32_t *out_y, uint8_t *out_buttons)
 {
-    spin_lock(&g_cursor_lock);
+    uint64_t flags;
+    spin_lock_irqsave(&g_cursor_lock, &flags);
     if (out_x) *out_x = g_cursor.x;
     if (out_y) *out_y = g_cursor.y;
     if (out_buttons) *out_buttons = g_cursor.buttons;
-    spin_unlock(&g_cursor_lock);
+    spin_unlock_irqrestore(&g_cursor_lock, flags);
 }
 
 void cursor_restore_bg(framebuffer_t *fb)
 {
     if (!fb || !fb->initialized) return;
 
-    spin_lock(&g_cursor_lock);
+    uint64_t flags;
+    spin_lock_irqsave(&g_cursor_lock, &flags);
     if (!g_cursor.has_saved_bg) {
-        spin_unlock(&g_cursor_lock);
+        spin_unlock_irqrestore(&g_cursor_lock, flags);
         return;
     }
 
@@ -142,16 +149,17 @@ void cursor_restore_bg(framebuffer_t *fb)
 
     fb_mark_damage(fb, sx, sy, CURSOR_WIDTH, CURSOR_HEIGHT);
     g_cursor.has_saved_bg = false;
-    spin_unlock(&g_cursor_lock);
+    spin_unlock_irqrestore(&g_cursor_lock, flags);
 }
 
 void cursor_draw(framebuffer_t *fb)
 {
     if (!fb || !fb->initialized) return;
 
-    spin_lock(&g_cursor_lock);
+    uint64_t flags;
+    spin_lock_irqsave(&g_cursor_lock, &flags);
     if (!g_cursor.visible) {
-        spin_unlock(&g_cursor_lock);
+        spin_unlock_irqrestore(&g_cursor_lock, flags);
         return;
     }
 
@@ -202,5 +210,5 @@ void cursor_draw(framebuffer_t *fb)
     }
 
     fb_mark_damage(fb, cx, cy, CURSOR_WIDTH, CURSOR_HEIGHT);
-    spin_unlock(&g_cursor_lock);
+    spin_unlock_irqrestore(&g_cursor_lock, flags);
 }

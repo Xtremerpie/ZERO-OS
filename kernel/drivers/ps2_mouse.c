@@ -27,13 +27,14 @@ static inline void ps2_wait_write(void)
     }
 }
 
-static inline void ps2_wait_read(void)
+static inline bool ps2_wait_read(void)
 {
     for (int timeout = 0; timeout < 10000; timeout++) {
         if (inb(PS2_STATUS_PORT) & 1)
-            return;
+            return true;
         cpu_pause();
     }
+    return false;
 }
 
 void ps2_mouse_handle_byte(uint8_t byte)
@@ -140,12 +141,11 @@ int ps2_mouse_init(void)
     /* 2. Read Controller Configuration Byte */
     ps2_wait_write();
     outb(PS2_COMMAND_PORT, 0x20);
-    ps2_wait_read();
-    uint8_t compaq_status = inb(PS2_DATA_PORT);
+    uint8_t compaq_status = ps2_wait_read() ? inb(PS2_DATA_PORT) : 0x01;
 
-    /* 3. Enable IRQ 12 (bit 1) and disable mouse clock disable (clear bit 5) */
-    compaq_status |= 0x02;
-    compaq_status &= (uint8_t)~0x20;
+    /* 3. Preserve IRQ 1, enable IRQ 12 (bit 1), and enable both clocks */
+    compaq_status |= 0x03u;
+    compaq_status &= (uint8_t)~0x30u;
 
     ps2_wait_write();
     outb(PS2_COMMAND_PORT, 0x60);
@@ -157,16 +157,16 @@ int ps2_mouse_init(void)
     outb(PS2_COMMAND_PORT, 0xD4);
     ps2_wait_write();
     outb(PS2_DATA_PORT, 0xF6); /* Set defaults */
-    ps2_wait_read();
-    (void)inb(PS2_DATA_PORT);  /* ACK (0xFA) */
+    if (ps2_wait_read())
+        (void)inb(PS2_DATA_PORT);  /* ACK (0xFA) */
 
     /* 5. Enable data reporting */
     ps2_wait_write();
     outb(PS2_COMMAND_PORT, 0xD4);
     ps2_wait_write();
     outb(PS2_DATA_PORT, 0xF4); /* Enable data reporting */
-    ps2_wait_read();
-    (void)inb(PS2_DATA_PORT);  /* ACK (0xFA) */
+    if (ps2_wait_read())
+        (void)inb(PS2_DATA_PORT);  /* ACK (0xFA) */
 
     /* Register IRQ 12 (vector 0x2C) in IDT */
     idt_register_handler(0x2C, ps2_mouse_irq_handler);

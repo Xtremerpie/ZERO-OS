@@ -45,6 +45,10 @@ void shell_set_state(shell_state_t state);
 /* Dispatch mouse and keyboard events through shell */
 void shell_dispatch_mouse(int32_t screen_x, int32_t screen_y, uint8_t buttons);
 void shell_dispatch_key(uint8_t key, uint8_t scancode);
+void shell_dispatch_keycode(uint32_t keycode, uint32_t modifiers);
+
+/* Safely flush caches and power off / halt the machine */
+__attribute__((noreturn)) void shell_shutdown(void);
 
 /* Launch standard system utility application */
 void shell_launch_app(app_id_t app_id);

@@ -61,12 +61,24 @@ bool input_run_selftests(void)
     char c_upper = input_keycode_to_ascii(KEY_A, MODIFIER_SHIFT);
     char c_num = input_keycode_to_ascii(KEY_1, 0);
     char c_sym = input_keycode_to_ascii(KEY_1, MODIFIER_SHIFT);
+    char c_esc = input_keycode_to_ascii(KEY_ESCAPE, 0);
 
-    if (c_lower != 'a' || c_upper != 'A' || c_num != '1' || c_sym != '!') {
+    if (c_lower != 'a' || c_upper != 'A' || c_num != '1' || c_sym != '!' || c_esc != '\x1b') {
         KLOG_ERROR("selftest", "Input test 3 failed: ASCII translation mismatch ('%c', '%c', '%c', '%c')",
                  c_lower, c_upper, c_num, c_sym);
         return false;
     }
+
+    /* Verify extended Super/Win key (0xE0 0x5B) decoding */
+    ps2_kbd_handle_scancode(0xE0);
+    ps2_kbd_handle_scancode(0x5B);
+    if (!input_poll_event(&ev_out) || ev_out.type != INPUT_KEY_DOWN || ev_out.code != KEY_LWIN) {
+        KLOG_ERROR("selftest", "Input test 3b failed: extended LWIN scancode decode failed");
+        return false;
+    }
+    ps2_kbd_handle_scancode(0xE0);
+    ps2_kbd_handle_scancode(0xDB);
+    while (input_poll_event(&ev_out)) {}
 
     /* 4. Mouse 3-byte Packet Decoding Test */
     /* Byte 0: 0x09 (bit 3 always 1, bit 0 left button down)

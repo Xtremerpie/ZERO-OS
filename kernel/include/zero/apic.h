@@ -53,5 +53,11 @@ void apic_eoi(void);
 /* Retrieve APIC ID of current CPU. */
 uint32_t apic_get_id(void);
 
+/* Initialize I/O APIC from ACPI MADT (or default 0xFEC00000) and mask all GSIs. */
+bool ioapic_init(void);
+
+/* Route an ISA IRQ (respecting ACPI MADT Interrupt Source Overrides) to an IDT vector. */
+bool ioapic_route_irq(uint8_t irq, uint8_t vector);
+
 /* Compatibility name used by early PS/2 driver revisions. */
 #define apic_send_eoi() apic_eoi()

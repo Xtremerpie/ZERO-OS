@@ -74,6 +74,8 @@ void ps2_kbd_handle_scancode(uint8_t scancode)
         case 0x51: keycode = KEY_PAGEDOWN; break;
         case 0x52: keycode = KEY_INSERT; break;
         case 0x53: keycode = KEY_DELETE; break;
+        case 0x5B: keycode = KEY_LWIN; break;
+        case 0x5C: keycode = KEY_RWIN; break;
         default:   keycode = KEY_UNKNOWN; break;
         }
         g_extended = false;
@@ -109,11 +111,39 @@ void ps2_kbd_handle_scancode(uint8_t scancode)
     input_push_event(&ev);
 }
 
+static inline void ps2_kbd_wait_write(void)
+{
+    for (int timeout = 0; timeout < 10000; timeout++) {
+        if ((inb(PS2_STATUS_PORT) & 2) == 0)
+            return;
+        cpu_pause();
+    }
+}
+
+static inline bool ps2_kbd_wait_read(void)
+{
+    for (int timeout = 0; timeout < 10000; timeout++) {
+        if (inb(PS2_STATUS_PORT) & 1)
+            return true;
+        cpu_pause();
+    }
+    return false;
+}
+
+void ps2_flush_output(void)
+{
+    for (int i = 0; i < 64; i++) {
+        if ((inb(PS2_STATUS_PORT) & 1) == 0)
+            break;
+        (void)inb(PS2_DATA_PORT);
+    }
+}
+
 static void ps2_kbd_irq_handler(struct interrupt_frame *frame)
 {
     (void)frame;
     uint8_t status = inb(PS2_STATUS_PORT);
-    if (status & 1) { /* Output buffer full */
+    if ((status & 1) && !(status & 0x20)) { /* Output buffer full, keyboard source */
         uint8_t sc = inb(PS2_DATA_PORT);
         ps2_kbd_handle_scancode(sc);
     }
@@ -122,10 +152,26 @@ static void ps2_kbd_irq_handler(struct interrupt_frame *frame)
 
 int ps2_kbd_init(void)
 {
-    /* Flush existing byte in buffer if any */
-    if (inb(PS2_STATUS_PORT) & 1) {
-        (void)inb(PS2_DATA_PORT);
+    g_extended = false;
+
+    /* Enable first PS/2 port and flush any stale controller output. */
+    ps2_kbd_wait_write();
+    outb(PS2_COMMAND_PORT, 0xAE);
+    ps2_flush_output();
+
+    /* Enable IRQ 1 (bit 0) and port 1 clock (clear bit 4) in i8042 config. */
+    ps2_kbd_wait_write();
+    outb(PS2_COMMAND_PORT, 0x20);
+    if (ps2_kbd_wait_read()) {
+        uint8_t cfg = inb(PS2_DATA_PORT);
+        cfg |= 0x01u;
+        cfg &= (uint8_t)~0x10u;
+        ps2_kbd_wait_write();
+        outb(PS2_COMMAND_PORT, 0x60);
+        ps2_kbd_wait_write();
+        outb(PS2_DATA_PORT, cfg);
     }
+    ps2_flush_output();
 
     /* Register IRQ 1 (vector 0x21) in IDT */
     idt_register_handler(0x21, ps2_kbd_irq_handler);

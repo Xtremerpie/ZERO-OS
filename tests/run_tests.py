@@ -558,8 +558,8 @@ def png_write(path, w, h, rows):
 
 
 def run_framebuffer():
-    """Boot, wait for 'boot complete', take a real QEMU screendump, verify the banner pixels."""
-    img = make_image("framebuffer", "")
+    """Boot with zero.console=1, wait for 'boot complete', take a real QEMU screendump, verify the banner pixels."""
+    img = make_image("framebuffer", "zero.console=1")
     sock_path = os.path.join(TESTDIR, "mon.sock")
     ppm = os.path.join(TESTDIR, "screen.ppm")
     for p in (sock_path, ppm):
@@ -617,6 +617,95 @@ def run_framebuffer():
            f"screenshot: build/test/framebuffer.png")
 
 
+def run_desktop_interactive():
+    """Boot default image (cmdline=''), verify desktop event loop, login, keyboard, and mouse."""
+    img = make_image("desktop_interactive", "")
+    sock_path = os.path.join(TESTDIR, "desktop_mon.sock")
+    ppm_login = os.path.join(TESTDIR, "desktop_login.ppm")
+    ppm_desk = os.path.join(TESTDIR, "desktop_session.ppm")
+    for p in (sock_path, ppm_login, ppm_desk):
+        if os.path.exists(p):
+            os.remove(p)
+    cmd = [os.path.join(ROOT, "scripts", "run-qemu.sh"), img, "--headless", "--mem", os.environ.get("ZERO_TEST_MEM", "512M"), "--monitor", sock_path]
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+    os.set_blocking(p.stdout.fileno(), False)
+    buf, deadline = b"", time.time() + 90
+    needle = b"entering interactive ZERO Desktop event loop"
+    while time.time() < deadline and needle not in buf:
+        try:
+            chunk = p.stdout.read(4096)
+        except BlockingIOError:
+            chunk = None
+        if chunk:
+            buf += chunk
+        else:
+            time.sleep(0.1)
+    ok_loop = needle in buf
+    shot_login = shot_desk = False
+    if ok_loop:
+        time.sleep(1.0)
+        try:
+            s = socket.socket(socket.AF_UNIX)
+            s.settimeout(5)
+            s.connect(sock_path)
+            s.recv(4096)
+            s.sendall(f"screendump {ppm_login}\n".encode())
+            time.sleep(1.0)
+            shot_login = os.path.exists(ppm_login)
+            # Log in via Enter key, move mouse, run 'help' in Terminal, toggle launcher with F1
+            s.sendall(b"sendkey ret\n")
+            time.sleep(0.5)
+            s.sendall(b"mouse_move 40 20\n")
+            time.sleep(0.3)
+            for k in ["h", "e", "l", "p", "ret"]:
+                s.sendall(f"sendkey {k}\n".encode())
+                time.sleep(0.1)
+            time.sleep(0.5)
+            s.sendall(f"screendump {ppm_desk}\n".encode())
+            time.sleep(1.0)
+            shot_desk = os.path.exists(ppm_desk)
+            s.sendall(b"quit\n")
+            s.close()
+        except OSError:
+            pass
+    try:
+        out_rest, _ = p.communicate(timeout=5)
+        buf += out_rest
+    except subprocess.TimeoutExpired:
+        p.kill()
+        out_rest, _ = p.communicate()
+        buf += out_rest
+    serial_text = clean(buf.decode("utf-8", "replace"))
+    no_panic = (
+        "KERNEL PANIC" not in serial_text
+        and "PANIC" not in serial_text
+        and "unhandled interrupt" not in serial_text.lower()
+    )
+    ok = ok_loop and shot_login and shot_desk and no_panic
+    detail = "interactive desktop + keyboard/mouse verified"
+    if ok:
+        d1 = open(ppm_login, "rb").read()
+        d2 = open(ppm_desk, "rb").read()
+        m1 = re.match(rb"P6\s+(\d+)\s+(\d+)\s+255\s", d1)
+        m2 = re.match(rb"P6\s+(\d+)\s+(\d+)\s+255\s", d2)
+        if not m1 or not m2:
+            ok = False
+            detail = "invalid PPM header in desktop screendump"
+        else:
+            px1, px2 = d1[m1.end():], d2[m2.end():]
+            gold1 = px1.count(bytes((0xD4, 0xAF, 0x37)))
+            gold2 = px2.count(bytes((0xD4, 0xAF, 0x37)))
+            crimson2 = px2.count(bytes((0xC4, 0x12, 0x30)))
+            if px1 == px2 or gold1 < 500 or gold2 < 1000 or crimson2 < 100:
+                ok = False
+                detail = f"desktop did not transition/render after input (changed={px1 != px2}, gold1={gold1}, gold2={gold2}, crimson2={crimson2})"
+            else:
+                detail = f"login gold={gold1}, desktop gold={gold2}, crimson={crimson2}; transition verified"
+    else:
+        detail = f"ok_loop={ok_loop}, shot_login={shot_login}, shot_desk={shot_desk}, no_panic={no_panic}"
+    record("desktop_interactive", ok, detail)
+
+
 def run_version_manifest():
     r = subprocess.run([sys.executable, os.path.join(ROOT, "tests", "check_versions.py")],
                        capture_output=True, text=True)
@@ -625,7 +714,7 @@ def run_version_manifest():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--only", nargs="*", help="run only these case names (or: version, pmm, bench, wx, strict, repeat, failure, framebuffer, image)")
+    ap.add_argument("--only", nargs="*", help="run only these case names (or: version, pmm, bench, wx, strict, repeat, failure, framebuffer, desktop, image)")
     ap.add_argument("--repeat", type=int, default=5)
     ap.add_argument("--matrix", default=os.environ.get("ZERO_PMM_MATRIX", DEFAULT_MATRIX),
                     help="comma-separated guest sizes for the PMM suite (default %(default)s). "
@@ -657,6 +746,8 @@ def main():
         run_failure_diagnostics(a.keep_logs)
     if not want or "framebuffer" in want:
         run_framebuffer()
+    if not want or "desktop" in want:
+        run_desktop_interactive()
 
     if not want or "image" in want:
         run_image_unmodified()

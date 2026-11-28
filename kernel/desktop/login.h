@@ -23,6 +23,9 @@ void login_init(framebuffer_t *fb);
 /* Render complete login surface */
 void login_render(framebuffer_t *fb);
 
+/* Mark login screen as needing a redraw */
+void login_mark_dirty(void);
+
 /* Handle input events targeted at login screen */
 void login_handle_mouse(int32_t x, int32_t y, uint8_t buttons);
 void login_handle_key(uint8_t key, uint8_t scancode);

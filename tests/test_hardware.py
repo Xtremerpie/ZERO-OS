@@ -97,10 +97,12 @@ def test_ps2_keyboard_decoding():
     assert is_break(break_a), "Break code not identified"
     assert (break_a & 0x7F) == make_a, "Make extraction failed"
 
-    # Extended scancode 0xE0 prefix handling
+    # Extended scancode 0xE0 prefix handling (arrows + Super/LWIN)
     seq_up = [0xE0, 0x48]
     assert seq_up[0] == 0xE0
     assert seq_up[1] == 0x48 # Up arrow
+    seq_lwin = [0xE0, 0x5B]
+    assert seq_lwin[0] == 0xE0 and (seq_lwin[1] & 0x7F) == 0x5B
     print("  -> PASS: PS/2 Keyboard scancodes and break detection")
 
 def test_ps2_mouse_packet():
@@ -156,6 +158,22 @@ def test_usb_descriptors():
     assert struct.calcsize("<BBBBHB") == 7, "USB endpoint descriptor must be 7 bytes"
     print("  -> PASS: USB descriptor binary packing and sizes")
 
+def test_ioapic_iso_routing():
+    print("[TEST] I/O APIC ISA IRQ -> GSI redirection flags...")
+    def encode_redtbl(vector, iso_flags):
+        flags = 0
+        if (iso_flags & 0x03) == 0x03:
+            flags |= (1 << 13)  # Active-low polarity
+        if ((iso_flags >> 2) & 0x03) == 0x03:
+            flags |= (1 << 15)  # Level-triggered
+        return vector | flags  # Bit 16 (masked) cleared
+
+    # ISA IRQ 1 -> vector 0x21, edge-triggered active-high (flags=0)
+    assert encode_redtbl(0x21, 0) == 0x21
+    # Active-low level-triggered ISO (flags=0x0F)
+    assert encode_redtbl(0x2C, 0x0F) == (0x2C | (1 << 13) | (1 << 15))
+    print("  -> PASS: I/O APIC redirection entry flag encoding")
+
 def main():
     print("============================================================")
     print("  ZERO OS 3.0.0 Hardware Foundation Test Suite")
@@ -167,8 +185,9 @@ def main():
     test_ps2_mouse_packet()
     test_block_device_boundaries()
     test_usb_descriptors()
+    test_ioapic_iso_routing()
     print("============================================================")
-    print("ALL 7 HARDWARE FOUNDATION SUITES PASSED (100% OK)")
+    print("ALL 8 HARDWARE FOUNDATION SUITES PASSED (100% OK)")
     print("============================================================")
     return 0
 

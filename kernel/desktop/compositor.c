@@ -9,15 +9,22 @@
 #include "graphics/color.h"
 #include "graphics/cursor.h"
 #include "zero/string.h"
+#include "zero/timer.h"
 
 static framebuffer_t    *s_fb = NULL;
 static bool              s_launcher_open = false;
+static int32_t           s_launcher_sel = 0;
+static bool              s_dirty = true;
+static uint64_t          s_last_clock_sec = (uint64_t)-1;
 static compositor_stats_t s_stats;
 
 void compositor_init(framebuffer_t *fb)
 {
     s_fb = fb;
     s_launcher_open = false;
+    s_launcher_sel = 0;
+    s_dirty = true;
+    s_last_clock_sec = (uint64_t)-1;
     memset(&s_stats, 0, sizeof(compositor_stats_t));
 
     if (s_fb) {
@@ -28,6 +35,7 @@ void compositor_init(framebuffer_t *fb)
 
 void compositor_mark_dirty(void)
 {
+    s_dirty = true;
     if (s_fb) {
         fb_mark_damage(s_fb, 0, 0, s_fb->width, s_fb->height);
     }
@@ -35,6 +43,7 @@ void compositor_mark_dirty(void)
 
 void compositor_mark_damage(int32_t x, int32_t y, int32_t w, int32_t h)
 {
+    s_dirty = true;
     if (s_fb) {
         fb_mark_damage(s_fb, x, y, w, h);
     }
@@ -43,18 +52,31 @@ void compositor_mark_damage(int32_t x, int32_t y, int32_t w, int32_t h)
 void compositor_toggle_launcher(void)
 {
     s_launcher_open = !s_launcher_open;
+    if (s_launcher_open) s_launcher_sel = 0;
     compositor_mark_dirty();
 }
 
 void compositor_set_launcher(bool open)
 {
     s_launcher_open = open;
+    if (s_launcher_open) s_launcher_sel = 0;
     compositor_mark_dirty();
 }
 
 bool compositor_is_launcher_open(void)
 {
     return s_launcher_open;
+}
+
+void compositor_set_launcher_selection(int32_t index)
+{
+    s_launcher_sel = index;
+    compositor_mark_dirty();
+}
+
+int32_t compositor_get_launcher_selection(void)
+{
+    return s_launcher_sel;
 }
 
 static void render_background(void)
@@ -197,7 +219,7 @@ static void render_taskbar(void)
         window_t *w = wins[i];
         if (!w) continue;
 
-        if (tab_x + tab_w > (int32_t)s_fb->width - 180) {
+        if (tab_x + tab_w > (int32_t)s_fb->width - 224) {
             break; /* prevent overflow into system tray */
         }
 
@@ -220,16 +242,30 @@ static void render_taskbar(void)
         tab_x += tab_w + 4;
     }
 
-    /* System tray at right */
-    int32_t tray_x = s_fb->width - 170;
+    /* System tray + Power button at right */
+    int32_t tray_x = (int32_t)s_fb->width - 216;
 
     /* Tray icons: Net, Disk, CPU */
     font_draw_char(s_fb, tray_x, ty + 14, GLYPH_ICON_NET, 1, COLOR_ZERO_SUCCESS);
     font_draw_char(s_fb, tray_x + 18, ty + 14, GLYPH_ICON_DISK, 1, COLOR_ZERO_GOLD);
     font_draw_char(s_fb, tray_x + 36, ty + 14, GLYPH_ICON_CPU, 1, COLOR_ZERO_GOLD);
 
-    /* Clock / Uptime display */
-    font_draw_string(s_fb, tray_x + 58, ty + 14, "12:00:00", 1, COLOR_ZERO_WHITE);
+    /* Live Uptime HH:MM:SS display */
+    uint64_t up_sec = timer_get_uptime_ms() / 1000ull;
+    uint32_t hh = (uint32_t)((up_sec / 3600ull) % 100ull);
+    uint32_t mm = (uint32_t)((up_sec / 60ull) % 60ull);
+    uint32_t ss = (uint32_t)(up_sec % 60ull);
+    char clk[9];
+    clk[0] = (char)('0' + hh / 10); clk[1] = (char)('0' + hh % 10); clk[2] = ':';
+    clk[3] = (char)('0' + mm / 10); clk[4] = (char)('0' + mm % 10); clk[5] = ':';
+    clk[6] = (char)('0' + ss / 10); clk[7] = (char)('0' + ss % 10); clk[8] = '\0';
+    font_draw_string(s_fb, tray_x + 58, ty + 14, clk, 1, COLOR_ZERO_WHITE);
+
+    /* Shutdown [OFF] button at far right [width - 48 .. width - 6] */
+    int32_t off_x = (int32_t)s_fb->width - 48;
+    draw_fill_rect(s_fb, off_x, ty + 4, 42, 28, 0x4A0F1Au);
+    draw_rect(s_fb, off_x, ty + 4, 42, 28, COLOR_ZERO_CRIMSON);
+    font_draw_string(s_fb, off_x + 9, ty + 14, "OFF", 1, COLOR_ZERO_WHITE);
 }
 
 static void render_launcher_menu(void)
@@ -238,10 +274,11 @@ static void render_launcher_menu(void)
 
     uint32_t count = 0;
     const app_desc_t *apps = app_get_all(&count);
+    uint32_t total_items = count + 2u; /* + Lock Screen + Shutdown */
 
     int32_t row_h = 28;
     int32_t mw = 220;
-    int32_t mh = 36 + (int32_t)count * row_h + 4;
+    int32_t mh = 36 + (int32_t)total_items * row_h + 4;
     int32_t mx = 6;
     int32_t my = (int32_t)s_fb->height - TASKBAR_HEIGHT - mh - 4;
     if (my < 10) my = 10;
@@ -261,19 +298,44 @@ static void render_launcher_menu(void)
     /* App entries */
     int32_t item_y = my + 34;
     for (uint32_t i = 0; i < count; i++) {
-        draw_fill_rect(s_fb, mx + 4, item_y, mw - 8, 24, 0x16161Du);
-        draw_rect(s_fb, mx + 4, item_y, mw - 8, 24, 0x2A2A38u);
+        bool sel = ((int32_t)i == s_launcher_sel);
+        draw_fill_rect(s_fb, mx + 4, item_y, mw - 8, 24, sel ? 0x2A2A38u : 0x16161Du);
+        draw_rect(s_fb, mx + 4, item_y, mw - 8, 24, sel ? COLOR_ZERO_GOLD : 0x2A2A38u);
 
-        font_draw_char(s_fb, mx + 12, item_y + 4, apps[i].icon_glyph, 1, COLOR_ZERO_GOLD);
-        font_draw_string(s_fb, mx + 30, item_y + 4, apps[i].name, 1, COLOR_ZERO_WHITE);
+        font_draw_char(s_fb, mx + 12, item_y + 8, apps[i].icon_glyph, 1, COLOR_ZERO_GOLD);
+        font_draw_string(s_fb, mx + 30, item_y + 8, apps[i].name, 1, sel ? COLOR_ZERO_GOLD : COLOR_ZERO_WHITE);
 
         item_y += row_h;
     }
+
+    /* Lock Screen entry */
+    bool lock_sel = ((int32_t)count == s_launcher_sel);
+    draw_fill_rect(s_fb, mx + 4, item_y, mw - 8, 24, lock_sel ? 0x2A2A38u : 0x181822u);
+    draw_rect(s_fb, mx + 4, item_y, mw - 8, 24, lock_sel ? COLOR_ZERO_GOLD : 0x3A3A4Cu);
+    font_draw_char(s_fb, mx + 12, item_y + 8, GLYPH_ICON_GEAR, 1, COLOR_ZERO_GOLD);
+    font_draw_string(s_fb, mx + 30, item_y + 8, "Lock Screen", 1, COLOR_ZERO_WHITE);
+    item_y += row_h;
+
+    /* Shutdown entry */
+    bool shut_sel = ((int32_t)(count + 1u) == s_launcher_sel);
+    draw_fill_rect(s_fb, mx + 4, item_y, mw - 8, 24, shut_sel ? 0x5C1422u : 0x3A0D16u);
+    draw_rect(s_fb, mx + 4, item_y, mw - 8, 24, shut_sel ? COLOR_ZERO_GOLD : COLOR_ZERO_CRIMSON);
+    font_draw_char(s_fb, mx + 12, item_y + 8, GLYPH_ICON_CLOSE, 1, COLOR_ZERO_WHITE);
+    font_draw_string(s_fb, mx + 30, item_y + 8, "Shutdown", 1, COLOR_ZERO_WHITE);
 }
 
 void compositor_render(void)
 {
     if (!s_fb) return;
+
+    uint64_t up_sec = timer_get_uptime_ms() / 1000ull;
+    if (up_sec != s_last_clock_sec) {
+        s_last_clock_sec = up_sec;
+        s_dirty = true;
+    }
+
+    if (!s_dirty) return;
+    s_dirty = false;
 
     /* 1. Desktop background */
     render_background();

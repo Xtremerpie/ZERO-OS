@@ -41,9 +41,9 @@ bool fb_init(const struct limine_framebuffer *lfb)
     size_t fb_bytes = (size_t)g_primary_fb.pitch * g_primary_fb.height;
     size_t pages_needed = (fb_bytes + VMM_PAGE_SIZE - 1) / VMM_PAGE_SIZE;
 
-    /* Attempt allocation via PMM contiguous frames or heap */
+    /* Attempt allocation via PMM contiguous frames or heap (up to 16 MiB, e.g. 1920x1080x32) */
     void *back_mem = NULL;
-    if (pages_needed <= 512) { /* Up to 2 MiB for 800x600 or 1024x768 */
+    if (pages_needed <= 4096) {
         back_mem = kmalloc(fb_bytes);
     }
 
@@ -114,7 +114,8 @@ void fb_mark_damage(framebuffer_t *fb, int32_t x, int32_t y, int32_t w, int32_t 
     int32_t x1 = x + w;
     int32_t y1 = y + h;
 
-    spin_lock(&g_fb_lock);
+    uint64_t flags;
+    spin_lock_irqsave(&g_fb_lock, &flags);
     if (!fb->is_damaged) {
         fb->damage_x0 = x;
         fb->damage_y0 = y;
@@ -127,7 +128,7 @@ void fb_mark_damage(framebuffer_t *fb, int32_t x, int32_t y, int32_t w, int32_t 
         if (x1 > fb->damage_x1) fb->damage_x1 = x1;
         if (y1 > fb->damage_y1) fb->damage_y1 = y1;
     }
-    spin_unlock(&g_fb_lock);
+    spin_unlock_irqrestore(&g_fb_lock, flags);
 }
 
 void fb_flip(framebuffer_t *fb)
@@ -138,7 +139,8 @@ void fb_flip(framebuffer_t *fb)
         return;
     }
 
-    spin_lock(&g_fb_lock);
+    uint64_t flags;
+    spin_lock_irqsave(&g_fb_lock, &flags);
 
     /* Clamp damage rect to screen boundaries */
     int32_t x0 = (fb->damage_x0 < 0) ? 0 : fb->damage_x0;
@@ -155,7 +157,7 @@ void fb_flip(framebuffer_t *fb)
     }
 
     fb->is_damaged = false;
-    spin_unlock(&g_fb_lock);
+    spin_unlock_irqrestore(&g_fb_lock, flags);
 }
 
 void fb_flip_full(framebuffer_t *fb)

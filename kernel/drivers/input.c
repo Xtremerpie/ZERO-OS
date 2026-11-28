@@ -28,7 +28,8 @@ int input_push_event(const input_event_t *ev)
     if (!ev)
         return -1;
 
-    spinlock_acquire(&g_input_lock);
+    uint64_t flags;
+    spin_lock_irqsave(&g_input_lock, &flags);
 
     if (g_queue_count >= INPUT_QUEUE_SIZE) {
         /* Drop oldest event to avoid lockups on queue overflow */
@@ -40,7 +41,7 @@ int input_push_event(const input_event_t *ev)
     g_queue_tail = (g_queue_tail + 1) % INPUT_QUEUE_SIZE;
     g_queue_count++;
 
-    spinlock_release(&g_input_lock);
+    spin_unlock_irqrestore(&g_input_lock, flags);
     return 0;
 }
 
@@ -49,10 +50,11 @@ bool input_poll_event(input_event_t *out_ev)
     if (!out_ev)
         return false;
 
-    spinlock_acquire(&g_input_lock);
+    uint64_t flags;
+    spin_lock_irqsave(&g_input_lock, &flags);
 
     if (g_queue_count == 0) {
-        spinlock_release(&g_input_lock);
+        spin_unlock_irqrestore(&g_input_lock, flags);
         return false;
     }
 
@@ -60,21 +62,28 @@ bool input_poll_event(input_event_t *out_ev)
     g_queue_head = (g_queue_head + 1) % INPUT_QUEUE_SIZE;
     g_queue_count--;
 
-    spinlock_release(&g_input_lock);
+    spin_unlock_irqrestore(&g_input_lock, flags);
     return true;
 }
 
 uint32_t input_get_modifiers(void)
 {
-    return g_active_modifiers;
+    uint64_t flags;
+    spin_lock_irqsave(&g_input_lock, &flags);
+    uint32_t mods = g_active_modifiers;
+    spin_unlock_irqrestore(&g_input_lock, flags);
+    return mods;
 }
 
 void input_set_modifier(uint32_t mod, bool active)
 {
+    uint64_t flags;
+    spin_lock_irqsave(&g_input_lock, &flags);
     if (active)
         g_active_modifiers |= mod;
     else
         g_active_modifiers &= ~mod;
+    spin_unlock_irqrestore(&g_input_lock, flags);
 }
 
 char input_keycode_to_ascii(uint32_t keycode, uint32_t modifiers)
@@ -101,6 +110,7 @@ char input_keycode_to_ascii(uint32_t keycode, uint32_t modifiers)
     switch (keycode) {
     case KEY_SPACE:        return ' ';
     case KEY_ENTER:        return '\n';
+    case KEY_ESCAPE:       return '\x1b';
     case KEY_TAB:          return '\t';
     case KEY_BACKSPACE:    return '\b';
     case KEY_MINUS:        return shift ? '_' : '-';

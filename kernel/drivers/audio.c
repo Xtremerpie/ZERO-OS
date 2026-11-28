@@ -21,8 +21,6 @@ static audio_device_t s_audio_dev = {
     .initialized = false
 };
 
-static size_t s_ring_head = 0;
-static size_t s_ring_tail = 0;
 static size_t s_ring_used = 0;
 
 static void probe_pci_audio(void)
@@ -59,8 +57,6 @@ void audio_init(void)
 {
     probe_pci_audio();
 
-    s_ring_head = 0;
-    s_ring_tail = 0;
     s_ring_used = 0;
     s_audio_dev.initialized = true;
 

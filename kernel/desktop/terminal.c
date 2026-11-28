@@ -1,13 +1,27 @@
 /* ZERO KERNEL - ZERO Terminal Subsystem Implementation (Milestone 5.0.0 ZERO Desktop).
  */
 #include "desktop/terminal.h"
+#include "desktop/compositor.h"
+#include "desktop/login.h"
+#include "desktop/shell.h"
+#include "drivers/audio.h"
 #include "fs/vfs.h"
 #include "fs/ramfs.h"
 #include "apps/zpm.h"
 #include "graphics/draw.h"
 #include "graphics/font.h"
 #include "graphics/color.h"
+#include "graphics/gpu.h"
+#include "hardware/acpi.h"
+#include "hardware/pci.h"
+#include "memory/heap.h"
+#include "memory/pmm.h"
+#include "process/process.h"
+#include "process/scheduler.h"
 #include "zero/string.h"
+#include "zero/timer.h"
+#include "zero/version.h"
+#include <stdio.h>
 
 static window_t *s_term_win = NULL;
 static char      s_lines[TERM_MAX_LINES][TERM_MAX_COLS];
@@ -36,6 +50,7 @@ void terminal_puts_color(const char *str, uint32_t color)
     s_lines[s_line_count][len] = '\0';
     s_colors[s_line_count] = color;
     s_line_count++;
+    compositor_mark_dirty();
 }
 
 void terminal_puts(const char *str)
@@ -49,6 +64,7 @@ void terminal_clear(void)
     for (uint32_t i = 0; i < TERM_MAX_LINES; i++) {
         s_lines[i][0] = '\0';
     }
+    compositor_mark_dirty();
 }
 
 void terminal_execute_command(const char *cmd_line)
@@ -63,30 +79,19 @@ void terminal_execute_command(const char *cmd_line)
     strncat(echo, cmd_line, TERM_MAX_COLS - 11);
     terminal_puts_color(echo, COLOR_ZERO_GOLD);
 
+    char buf[TERM_MAX_COLS];
+
     /* Command parsing */
     if (strcmp(cmd_line, "help") == 0) {
-        terminal_puts_color("ZERO OS Core Shell - Available Commands:", COLOR_ZERO_GOLD);
-        terminal_puts("  help      - display this help listing");
-        terminal_puts("  clear     - clear terminal screen buffer");
-        terminal_puts("  version   - display ZERO OS version and kernel build");
-        terminal_puts("  memory    - display physical & virtual memory statistics");
-        terminal_puts("  cpu       - display processor architecture & core info");
-        terminal_puts("  devices   - enumerate PCI, PS/2 and hardware controllers");
-        terminal_puts("  storage   - show block devices and mounted filesystems");
-        terminal_puts("  network   - show network interface and IP configuration");
-        terminal_puts("  processes - list running processes in preemptive scheduler");
-        terminal_puts("  uptime    - show system uptime and timer tick counter");
-        terminal_puts("  pwd       - print current working directory");
-        terminal_puts("  cd <dir>  - change current working directory");
-        terminal_puts("  ls        - list directory contents");
-        terminal_puts("  cat <file>- view file contents");
-        terminal_puts("  zpm <cmd> - ZERO Package Manager (list, info, install, uninstall, search, verify)");
+        terminal_puts_color("ZERO OS Shell - Commands:", COLOR_ZERO_GOLD);
+        terminal_puts("  help, clear, version, uptime, memory, cpu, devices");
+        terminal_puts("  storage, network, processes, pwd, cd, ls, cat <file>");
+        terminal_puts("  zpm <cmd>, lock, shutdown");
     } else if (strcmp(cmd_line, "clear") == 0) {
         terminal_clear();
     } else if (strcmp(cmd_line, "version") == 0) {
-        terminal_puts_color("ZERO OS 6.0.0 (ZERO Ecosystem - Higher-Half x86_64)", COLOR_ZERO_GOLD);
-        terminal_puts("Architecture: x86_64 Higher-Half Ring 0 Microkernel");
-        terminal_puts("Build: Milestone 6.0.0 Native Application Platform & Ecosystem");
+        terminal_puts_color("ZERO OS " ZERO_VERSION_STRING " \"" ZERO_CODENAME "\"", COLOR_ZERO_GOLD);
+        terminal_puts("Build: " ZERO_BUILD_ID " (x86_64 Higher-Half Ring 0 Kernel)");
     } else if (strncmp(cmd_line, "zpm", 3) == 0) {
         char out_buf[1024];
         zpm_exec_cli(cmd_line, out_buf, sizeof(out_buf));
@@ -103,81 +108,164 @@ void terminal_execute_command(const char *cmd_line)
             line = line_end + 1;
         }
     } else if (strcmp(cmd_line, "memory") == 0) {
-        terminal_puts_color("PMM / VMM Memory Subsystem:", COLOR_ZERO_GOLD);
-        terminal_puts("  Total RAM:   4096 MB Physical Memory");
-        terminal_puts("  PMM Status:  Active (Bitmap Page Frame Allocator)");
-        terminal_puts("  VMM Model:   4-Level Paging (PML4) with W^X Protection");
-        terminal_puts("  Heap:        Segregated Free Lists + Direct Pages");
+        struct pmm_stats ps;
+        struct heap_stats hs;
+        pmm_get_stats(&ps);
+        heap_get_stats(&hs);
+        terminal_puts_color("PMM / VMM / Heap Memory (Live):", COLOR_ZERO_GOLD);
+        snprintf(buf, sizeof(buf), "  Usable: %lu MiB | Free: %lu MiB (%lu frames)",
+                 (unsigned long)(ps.usable_memory / (1024u * 1024u)),
+                 (unsigned long)(ps.free_memory / (1024u * 1024u)),
+                 (unsigned long)ps.free_frames);
+        terminal_puts(buf);
+        snprintf(buf, sizeof(buf), "  Heap Active: %lu KiB | Peak: %lu KiB",
+                 (unsigned long)(hs.active_allocated_bytes / 1024u),
+                 (unsigned long)(hs.peak_allocated_bytes / 1024u));
+        terminal_puts(buf);
     } else if (strcmp(cmd_line, "cpu") == 0) {
-        terminal_puts_color("Processor Information:", COLOR_ZERO_GOLD);
-        terminal_puts("  Architecture: x86_64 (64-bit Long Mode)");
-        terminal_puts("  Cores:        2 Cores / 2 Threads (Intel Celeron J3355)");
-        terminal_puts("  APIC Timer:   Configured @ 1000 Hz Preemptive Tick");
+        const struct acpi_madt_info *madt = acpi_get_madt_info();
+        uint32_t cpus = (madt && madt->cpu_count > 0) ? madt->cpu_count : 1;
+        terminal_puts_color("Processor & Timer (Live):", COLOR_ZERO_GOLD);
+        snprintf(buf, sizeof(buf), "  Arch: x86_64 Long Mode | MADT CPUs: %u", cpus);
+        terminal_puts(buf);
+        snprintf(buf, sizeof(buf), "  APIC Timer: %u Hz | Ticks: %lu",
+                 TIMER_DEFAULT_HZ, (unsigned long)timer_get_ticks());
+        terminal_puts(buf);
     } else if (strcmp(cmd_line, "devices") == 0) {
-        terminal_puts_color("Hardware Device Inventory:", COLOR_ZERO_GOLD);
-        terminal_puts("  [PCI] Host Bridge 00:00.0");
-        terminal_puts("  [PCI] Intel HD Graphics 500 (VRAM Linear Framebuffer)");
-        terminal_puts("  [PCI] Intel 82540EM Gigabit Ethernet (e1000)");
-        terminal_puts("  [PCI] VirtIO / IDE Block Storage Controller");
-        terminal_puts("  [PS2] Dual-Channel Mouse (100Hz) & Keyboard (Set 2)");
+        size_t n = pci_device_count();
+        const gpu_device_t *gpu = gpu_get_device();
+        const audio_device_t *aud = audio_get_device();
+        snprintf(buf, sizeof(buf), "PCI Devices (%u):", (unsigned)n);
+        terminal_puts_color(buf, COLOR_ZERO_GOLD);
+        for (size_t i = 0; i < n && i < 8; i++) {
+            const pci_device_t *d = pci_get_device(i);
+            if (!d) continue;
+            snprintf(buf, sizeof(buf), "  [%02x:%02x.%x] %04x:%04x %s",
+                     d->bus, d->slot, d->func, d->vendor_id, d->device_id,
+                     pci_class_name(d->class_code, d->subclass));
+            terminal_puts(buf);
+        }
+        snprintf(buf, sizeof(buf), "  Display: %s (Accel: %s)",
+                 gpu ? gpu->name : "Unknown",
+                 (gpu && gpu->is_accelerated) ? "YES" : "NO (SW)");
+        terminal_puts(buf);
+        snprintf(buf, sizeof(buf), "  Audio: %s (Software Null Sink)",
+                 aud ? aud->name : "None");
+        terminal_puts(buf);
     } else if (strcmp(cmd_line, "storage") == 0) {
         terminal_puts_color("Storage & Filesystem Subsystem:", COLOR_ZERO_GOLD);
         terminal_puts("  /     - RAMFS In-Memory Root Filesystem");
-        terminal_puts("  /data - ZEROFS v1 Partition (GPT 4096B block cache)");
-        terminal_puts("  Block Size: 512B Sectors | Inode Size: 128B");
+        terminal_puts("  /data - ZEROFS v1 Volume on ramdisk0 (1 MiB, in-memory)");
     } else if (strcmp(cmd_line, "network") == 0) {
-        terminal_puts_color("Network Interface Configuration:", COLOR_ZERO_GOLD);
-        terminal_puts("  Interface: eth0 (e1000 Gigabit)");
-        terminal_puts("  MAC:       52:54:00:12:34:56");
-        terminal_puts("  IPv4:      10.0.2.15 / 255.255.255.0");
-        terminal_puts("  Gateway:   10.0.2.2 | DNS: 10.0.2.3");
-        terminal_puts("  Stack:     TCP/IP, UDP, ICMP, DHCP, BSD Sockets (Syscalls 11-17)");
+        terminal_puts_color("Network Interface (Local Stack / No Internet):", COLOR_ZERO_GOLD);
+        terminal_puts("  Interface: eth0 (e1000) | Static Config: 10.0.2.15/24");
+        terminal_puts("  Note: TCP/IP stack initialized; external internet unverified.");
     } else if (strcmp(cmd_line, "processes") == 0) {
-        terminal_puts_color("Preemptive Scheduler Process Table:", COLOR_ZERO_GOLD);
-        terminal_puts("  PID  NAME          STATE    PRIORITY");
-        terminal_puts("  0    kernel_idle   READY    0 (Idle)");
-        terminal_puts("  1    init          RUNNING  1 (System)");
-        terminal_puts("  2    compositor    SLEEP    2 (UI)");
-        terminal_puts("  3    desktop_shell SLEEP    2 (UI)");
+        struct scheduler_stats st;
+        scheduler_get_stats(&st);
+        terminal_puts_color("Active Kernel Processes (Live):", COLOR_ZERO_GOLD);
+        for (pid_t pid = 0; pid < (pid_t)MAX_PROCESSES; pid++) {
+            process_t *p = process_get(pid);
+            if (p && p->state != PROCESS_STATE_UNUSED) {
+                snprintf(buf, sizeof(buf), "  PID %d  %-16s  threads=%u",
+                         p->pid, p->name, p->thread_count);
+                terminal_puts(buf);
+            }
+        }
+        snprintf(buf, sizeof(buf), "  Switches: %lu | Idle ticks: %lu",
+                 (unsigned long)st.context_switches, (unsigned long)st.idle_ticks);
+        terminal_puts(buf);
     } else if (strcmp(cmd_line, "uptime") == 0) {
-        terminal_puts("System Uptime: 42 seconds (Timer ticks: 42000)");
+        uint64_t ms = timer_get_uptime_ms();
+        snprintf(buf, sizeof(buf), "Uptime: %lu.%lu s (%lu ticks @ %u Hz)",
+                 (unsigned long)(ms / 1000ull), (unsigned long)((ms % 1000ull) / 100ull),
+                 (unsigned long)timer_get_ticks(), TIMER_DEFAULT_HZ);
+        terminal_puts(buf);
     } else if (strcmp(cmd_line, "pwd") == 0) {
         terminal_puts(s_cwd);
-    } else if (strncmp(cmd_line, "cd", 2) == 0) {
+    } else if (strncmp(cmd_line, "cd", 2) == 0 && (cmd_line[2] == '\0' || cmd_line[2] == ' ')) {
         const char *arg = cmd_line + 2;
         while (*arg == ' ') arg++;
         if (*arg == '\0' || strcmp(arg, "/") == 0) {
             strcpy(s_cwd, "/");
         } else {
-            strncpy(s_cwd, arg, sizeof(s_cwd) - 1);
-            s_cwd[sizeof(s_cwd) - 1] = '\0';
+            char next[VFS_MAX_PATH];
+            if (arg[0] == '/') {
+                strncpy(next, arg, sizeof(next) - 1);
+                next[sizeof(next) - 1] = '\0';
+            } else if (strcmp(s_cwd, "/") == 0) {
+                snprintf(next, sizeof(next), "/%s", arg);
+            } else {
+                snprintf(next, sizeof(next), "%s/%s", s_cwd, arg);
+            }
+            file_t *d = vfs_open(next, O_RDONLY);
+            if (d && d->vnode && d->vnode->type == VNODE_TYPE_DIR) {
+                strcpy(s_cwd, next);
+                vfs_close(d);
+            } else {
+                if (d) vfs_close(d);
+                terminal_puts_color("cd: directory not found in VFS", COLOR_ZERO_CRIMSON);
+            }
         }
     } else if (strcmp(cmd_line, "ls") == 0) {
-        terminal_puts_color("Listing directory:", COLOR_ZERO_GOLD);
-        terminal_puts("  drwxr-xr-x  bin");
-        terminal_puts("  drwxr-xr-x  dev");
-        terminal_puts("  drwxr-xr-x  data");
-        terminal_puts("  drwxr-xr-x  etc");
-        terminal_puts("  -rw-r--r--  readme.txt (128 bytes)");
+        snprintf(buf, sizeof(buf), "Directory %s (VFS):", s_cwd);
+        terminal_puts_color(buf, COLOR_ZERO_GOLD);
+        file_t *d = vfs_open(s_cwd, O_RDONLY);
+        if (d && d->vnode && d->vnode->type == VNODE_TYPE_DIR && d->vnode->fs_data) {
+            ramfs_node_t *node = (ramfs_node_t *)d->vnode->fs_data;
+            if (node->child_count == 0) {
+                terminal_puts("  (empty)");
+            } else {
+                for (size_t i = 0; i < node->child_count; i++) {
+                    ramfs_node_t *c = node->children[i];
+                    if (!c) continue;
+                    snprintf(buf, sizeof(buf), "  %-4s  %s (%lu B)",
+                             (c->type == VNODE_TYPE_DIR) ? "DIR" : "FILE",
+                             c->name, (unsigned long)c->size);
+                    terminal_puts(buf);
+                }
+            }
+            vfs_close(d);
+        } else {
+            if (d) vfs_close(d);
+            terminal_puts("  (cannot open directory)");
+        }
     } else if (strncmp(cmd_line, "cat", 3) == 0) {
         const char *arg = cmd_line + 3;
         while (*arg == ' ') arg++;
         if (*arg == '\0') {
             terminal_puts("Usage: cat <filename>");
         } else {
-            file_t *f = vfs_open(arg, O_RDONLY);
+            char path[VFS_MAX_PATH];
+            if (arg[0] == '/') {
+                strncpy(path, arg, sizeof(path) - 1);
+                path[sizeof(path) - 1] = '\0';
+            } else if (strcmp(s_cwd, "/") == 0) {
+                snprintf(path, sizeof(path), "/%s", arg);
+            } else {
+                snprintf(path, sizeof(path), "%s/%s", s_cwd, arg);
+            }
+            file_t *f = vfs_open(path, O_RDONLY);
             if (f) {
                 char read_buf[TERM_MAX_COLS];
                 int64_t bytes = vfs_read(f, read_buf, sizeof(read_buf) - 1);
                 if (bytes > 0) {
                     read_buf[bytes] = '\0';
                     terminal_puts(read_buf);
+                } else {
+                    terminal_puts("(empty file)");
                 }
                 vfs_close(f);
             } else {
-                terminal_puts("cat: file not found or empty");
+                terminal_puts("cat: file not found");
             }
         }
+    } else if (strcmp(cmd_line, "lock") == 0) {
+        login_lock();
+        shell_set_state(SHELL_STATE_LOGIN);
+    } else if (strcmp(cmd_line, "shutdown") == 0 || strcmp(cmd_line, "poweroff") == 0) {
+        terminal_puts_color("Shutting down ZERO OS...", COLOR_ZERO_GOLD);
+        shell_shutdown();
     } else {
         char err[TERM_MAX_COLS];
         strcpy(err, "Command not recognized: ");
@@ -197,9 +285,12 @@ static void term_paint(window_t *win, framebuffer_t *fb)
     /* Terminal background: Deep Void Black */
     draw_fill_rect(fb, ox, oy, cw, ch, COLOR_ZERO_BLACK);
 
-    /* Text lines */
+    /* Scroll to show most recent lines while keeping prompt visible */
+    uint32_t max_rows = (ch > 28) ? (uint32_t)((ch - 28) / 12) : 1u;
+    uint32_t start = (s_line_count > max_rows) ? (s_line_count - max_rows) : 0u;
+
     int32_t line_y = oy + 6;
-    for (uint32_t i = 0; i < s_line_count && line_y < oy + ch - 22; i++) {
+    for (uint32_t i = start; i < s_line_count && line_y < oy + ch - 22; i++) {
         font_draw_string(fb, ox + 8, line_y, s_lines[i], 1, s_colors[i]);
         line_y += 12;
     }
@@ -226,6 +317,7 @@ static void term_key(window_t *win, uint8_t key, uint8_t scancode)
         terminal_execute_command(s_input);
         s_input[0] = '\0';
         s_input_len = 0;
+        compositor_mark_dirty();
         return;
     }
 
@@ -233,6 +325,7 @@ static void term_key(window_t *win, uint8_t key, uint8_t scancode)
         if (s_input_len > 0) {
             s_input_len--;
             s_input[s_input_len] = '\0';
+            compositor_mark_dirty();
         }
         return;
     }
@@ -241,6 +334,7 @@ static void term_key(window_t *win, uint8_t key, uint8_t scancode)
         if (s_input_len < sizeof(s_input) - 1) {
             s_input[s_input_len++] = (char)key;
             s_input[s_input_len] = '\0';
+            compositor_mark_dirty();
         }
     }
 }
@@ -256,19 +350,21 @@ window_t *terminal_launch(void)
     if (s_term_win) {
         wm_bring_to_front(s_term_win);
         wm_set_focus(s_term_win);
+        compositor_mark_dirty();
         return s_term_win;
     }
 
-    s_term_win = wm_create_window("ZERO Terminal", 60, 40, 540, 340, WINDOW_FLAG_RESIZABLE);
+    s_term_win = wm_create_window("ZERO Terminal", 40, 40, 580, 360, WINDOW_FLAG_RESIZABLE);
     if (s_term_win) {
         s_term_win->on_paint = term_paint;
         s_term_win->on_key = term_key;
         s_term_win->on_close = term_close;
 
         if (s_line_count == 0) {
-            terminal_puts_color("ZERO OS [Version 5.0.0 ZERO Desktop]", COLOR_ZERO_GOLD);
-            terminal_puts("Type 'help' for an overview of available commands.");
+            terminal_puts_color("ZERO OS " ZERO_VERSION_STRING " (" ZERO_CODENAME ")", COLOR_ZERO_GOLD);
+            terminal_puts("Type 'help' for commands, or 'shutdown' to power off.");
         }
+        compositor_mark_dirty();
     }
 
     return s_term_win;
